@@ -75,6 +75,12 @@ focused set of tests (pure-function unit tests for the learning plan generator, 
 tests for feedback expansion, progress display, and the chat flow) demonstrates the same care I'd
 apply to real product code, without over-investing in test infrastructure for a 3-6 hour exercise.
 
+**Why this is deployed live, even though the brief doesn't require it.** A hosted link
+([illumia-one.vercel.app](https://illumia-one.vercel.app)) lets a reviewer open the working
+prototype in one click, on any device, with zero setup — no cloning the repo, installing Node,
+or running `npm install`/`npm run dev` first. It also doubles as a quick sanity check that the
+build actually works outside my own machine, not just in local dev.
+
 ## Built with AI assistance
 
 In the spirit of the case study's evaluation criteria ("use AI tools while applying your own
