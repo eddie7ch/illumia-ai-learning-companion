@@ -4,6 +4,8 @@ A frontend prototype of an **AI Learning Companion** that helps a learner unders
 progress, strengths, and areas for improvement, and get personalized AI-powered guidance on
 what to learn next — built for the Illumia software engineering case study.
 
+![Dashboard screenshot showing progress, strengths, recommended next step, activity list, and AI tutor chat](docs/screenshot.png)
+
 ## What this is
 
 A single-page React + TypeScript dashboard for a learner working through a "React Development"
