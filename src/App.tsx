@@ -36,7 +36,7 @@ function App() {
       </a>
 
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-800">
-        <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-4 py-5 sm:px-6 xl:px-10">
+        <div className="flex items-center justify-between gap-4 px-4 py-5 sm:px-6 xl:px-10 2xl:px-16">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
               AI Learning Companion
@@ -50,7 +50,7 @@ function App() {
         </div>
       </header>
 
-      <main id="main-content" className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 xl:px-10">
+      <main id="main-content" className="px-4 py-6 sm:px-6 xl:px-10 2xl:px-16">
         <div className="grid gap-6 lg:grid-cols-3 xl:grid-cols-5">
           <div className="space-y-6 lg:col-span-2 xl:col-span-3">
             {isLoading || !profile ? (
