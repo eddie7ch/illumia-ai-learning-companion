@@ -23,6 +23,13 @@ export function useLearnerCompanion() {
   // sendMessage always reads the latest history, even across rapid calls in the same tick.
   const messagesRef = useRef<ChatMessage[]>([]);
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const appendMessage = useCallback((message: ChatMessage) => {
     setMessages((prev) => {
       const next = [...prev, message];
@@ -67,11 +74,22 @@ export function useLearnerCompanion() {
       setIsThinking(true);
       setLiveAiNotice(null);
 
-      const reply = await requestTutorReply(trimmed, history, apiKey);
+      try {
+        const reply = await requestTutorReply(trimmed, history, apiKey);
+        if (!isMountedRef.current) return;
 
-      appendMessage({ id: `ai-${Date.now()}`, role: 'ai', text: reply.text });
-      if (reply.notice) setLiveAiNotice(reply.notice);
-      setIsThinking(false);
+        appendMessage({ id: `ai-${Date.now()}`, role: 'ai', text: reply.text });
+        if (reply.notice) setLiveAiNotice(reply.notice);
+      } catch {
+        if (!isMountedRef.current) return;
+        appendMessage({
+          id: `ai-${Date.now()}`,
+          role: 'ai',
+          text: 'Sorry, something went wrong answering that. Please try asking again.',
+        });
+      } finally {
+        if (isMountedRef.current) setIsThinking(false);
+      }
     },
     [apiKey, isThinking, appendMessage],
   );

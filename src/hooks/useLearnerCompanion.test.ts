@@ -90,4 +90,41 @@ describe('useLearnerCompanion', () => {
 
     expect(result.current.liveAiNotice).toMatch(/Live AI unavailable/i);
   });
+
+  it('shows a fallback message and resets isThinking when the reply promise rejects', async () => {
+    vi.mocked(requestTutorReply).mockRejectedValueOnce(new Error('catastrophic failure'));
+    const { result } = renderHook(() => useLearnerCompanion());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendMessage('question');
+    });
+
+    expect(result.current.isThinking).toBe(false);
+    expect(
+      result.current.messages.some((message) => message.text.includes('something went wrong')),
+    ).toBe(true);
+  });
+
+  it('does not update state after unmount when the reply resolves late', async () => {
+    let resolveReply: (value: { text: string }) => void = () => {};
+    vi.mocked(requestTutorReply).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveReply = resolve;
+      }),
+    );
+    const { result, unmount } = renderHook(() => useLearnerCompanion());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let sendPromise: Promise<void> = Promise.resolve();
+    act(() => {
+      sendPromise = result.current.sendMessage('question');
+    });
+
+    unmount();
+    resolveReply({ text: 'too late' });
+
+    // Should not throw/warn about updating an unmounted component.
+    await expect(sendPromise).resolves.toBeUndefined();
+  });
 });
