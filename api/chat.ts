@@ -69,10 +69,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const userId = userData.user.id;
 
-  const { count: dailyCount } = await supabase
-    .from('chat_events')
-    .select('id', { count: 'exact', head: true })
-    .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  // Uses a SECURITY DEFINER function (not a direct table select) so this cross-user total can be
+  // read without granting any signed-in user SELECT access to every other user's chat_events rows.
+  const { data: dailyCount } = await supabase.rpc('chat_events_daily_count');
   if ((dailyCount ?? 0) >= GLOBAL_DAILY_LIMIT) {
     res.status(429).json({ error: 'This demo has reached its shared AI chat limit for today. Please try again tomorrow.' });
     return;

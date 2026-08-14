@@ -111,3 +111,69 @@ backend/auth/database work goes well beyond the brief in both time and surface a
 useful to demonstrate broader ability, but it's additive scope creep relative to the assignment as
 written, not a sign that the minimal version was under-scoped. Both facts are worth saying rather
 than only presenting the more impressive outcome.
+
+## Security review
+
+A pass was done specifically over the "real mode" backend (Supabase auth/RLS, the three serverless
+API routes, client-side code) since that's the part of the project that goes beyond the brief and
+therefore carries real security surface area that a frontend-only mock demo wouldn't have.
+
+**What was already correct (no changes needed):**
+
+- All three API routes (`api/grade.ts`, `api/chat.ts`, `api/generate-quiz.ts`) verify the caller's
+  Supabase session server-side (`supabase.auth.getUser(token)`) and derive `userId` only from that
+  verified token — never from a client-supplied id. Input strings are length-capped, and AI output
+  is sanitized/capped before being returned to the browser.
+- No use of `dangerouslySetInnerHTML`, `innerHTML`, `eval(`, `new Function(`, or `document.write`
+  anywhere in `src/**` — no XSS injection vectors found.
+- No hardcoded secrets in the repo; `.env` holds only the public Supabase URL and anon key (by
+  design — this codebase never uses the Supabase `service_role` key anywhere, client or server).
+- `src/data/liveAi.ts`'s "bring your own OpenAI key" client-side mode was already disclosed in the
+  README as an accepted risk (the key lives only in component state for that browser tab, never
+  persisted or sent anywhere but OpenAI directly).
+- `courses`, `activities`, `profiles`, and `grading_events` all have owner-scoped RLS
+  (`auth.uid() = user_id`) — verified no cross-user read/write path through any of them.
+- No CSRF exposure: every API is stateless bearer-token authenticated, not cookie-session based.
+
+**What was found and fixed:**
+
+1. **Missing HTTP security headers.** No `vercel.json` existed, so the deployed site had no
+   Content-Security-Policy, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, or
+   `Permissions-Policy`. Added `vercel.json` with all five, including a CSP whose `connect-src`
+   allowlist (`'self'`, `https://*.supabase.co`, `https://api.openai.com`) was checked against
+   every external URL actually used client-side (only one: the OpenAI endpoint in `liveAi.ts`) so
+   it doesn't silently break anything. Verified live: headers are present on the production
+   response.
+2. **`chat_events` table let any signed-in user read every other user's rows.** `/api/chat.ts`
+   enforces a *shared, global* (not per-user) daily AI-chat cap, which needs to count rows across
+   all users. The RLS policy that made this possible —
+   `for select using (auth.role() = 'authenticated')` — technically satisfied that requirement, but
+   as a side effect let any signed-in user query `chat_events` directly via supabase-js/PostgREST
+   (bypassing the app entirely) and see every other user's `user_id` and reply timestamps. Not
+   message content (none is stored in that table), but still real cross-user metadata exposure that
+   shouldn't have been readable outside the app.
+   **Fix:** replaced that policy with an owner-only `auth.uid() = user_id` policy, and added a
+   `SECURITY DEFINER` Postgres function (`chat_events_daily_count()`) that returns just the global
+   count needed for the rate-limit check, without exposing any raw rows to the caller. Updated
+   `api/chat.ts` to call `supabase.rpc('chat_events_daily_count')` instead of selecting from the
+   table directly. This avoids introducing a `service_role` key anywhere in the app (which would
+   have been the other way to solve this) while still closing the leak. Applied to the live
+   database and verified the function returns a correct count; redeployed and confirmed the new
+   headers and updated rate-limit check are live.
+
+**What was found and consciously left as accepted/documented risk (not fixed):**
+
+- **TOCTOU race on rate limits.** The count-check and the insert into `grading_events`/`chat_events`
+  aren't atomic, so a burst of concurrent requests could theoretically exceed the stated per-hour/
+  per-day limits before the insert lands. Building an atomic counter (e.g. a Postgres advisory lock
+  or an atomic increment-and-check function) is reasonable for a real product but is more than this
+  demo needs — the OpenAI account-level spend cap (see README's "Cost controls & abuse prevention")
+  is the actual backstop against runaway cost, and the rate limits are best-effort UX, not the last
+  line of defense.
+- **Self-scoped prompt injection via user-supplied text** (e.g. course/activity titles fed into AI
+  prompts). A user could try to manipulate the AI's response to *their own* request, but there's no
+  path for it to affect any other user's data, session, or the server itself — worst case is a
+  weird response to yourself, not a security boundary crossing.
+- **Client-side "bring your own key" OpenAI mode** (`src/data/liveAi.ts`) — already disclosed in the
+  README before this review; re-confirmed here as still accurate (key never leaves that browser tab
+  except to call OpenAI directly).
