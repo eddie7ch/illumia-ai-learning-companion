@@ -55,6 +55,10 @@ export default function AiTutorChat({
   const quizAttemptRef = useRef(0);
   const activitiesRef = useRef(activities);
   activitiesRef.current = activities;
+  // Kept in a ref (not an effect dependency) because callers pass a new inline function on every
+  // render; depending on it directly would re-fire the auto-start effect on unrelated re-renders.
+  const onAutoStartQuizHandledRef = useRef(onAutoStartQuizHandled);
+  onAutoStartQuizHandledRef.current = onAutoStartQuizHandled;
   const apiKeyInputId = useId();
   const questionInputId = useId();
 
@@ -84,7 +88,7 @@ export default function AiTutorChat({
   useEffect(() => {
     if (!autoStartQuizId) return;
     startQuiz(autoStartQuizId);
-    onAutoStartQuizHandled?.();
+    onAutoStartQuizHandledRef.current?.();
   }, [autoStartQuizId, startQuiz]);
 
   useEffect(() => {

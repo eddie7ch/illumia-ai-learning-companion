@@ -35,6 +35,10 @@ All data is realistic mock/placeholder data — there is no backend, database, o
 
 ## Approach & design decisions
 
+_For a candid look at where this project stayed inside the case study's scope, where it went
+beyond it (and why), and what a later cleanup pass changed and deliberately left alone, see
+[`docs/housekeeping-and-scope.md`](docs/housekeeping-and-scope.md)._
+
 **Problem framing.** The case study describes four learner needs: understand progress, get
 feedback, see improvement areas, and know what to do next. Rather than spreading effort across
 many shallow features, I prioritized a single, coherent dashboard that answers all four
@@ -227,32 +231,45 @@ npm run preview
 
 ```
 api/
-  grade.ts          Serverless endpoint: AI-grades a submission using a server-only OpenAI key
+  grade.ts            Serverless endpoint: AI-grades a submission using a server-only OpenAI key
+  chat.ts             Serverless endpoint: server-backed AI tutor chat replies (shared daily cap)
+  generate-quiz.ts    Serverless endpoint: generates live, course-scoped quiz questions with OpenAI
 src/
-  components/       UI components (progress, trend chart, calendar, strengths, activities,
-                     learning plan, AI tutor chat, auth, course switcher, theme toggle)
+  components/         UI components — progress, trend chart, activity calendar, strengths,
+                       activity list/cards, quiz runner, learning plan, AI tutor chat, auth
+                       (sign in/up, password reset), course switcher, theme toggle, live clock
+  context/
+    StudySessionContext.tsx  Tracks active/idle time-on-page for the study session tracker
+    useStudySession.ts       Hook consuming that context
+    studySessionCore.ts      Pure timing/idle-detection logic (unit-testable, no React/DOM)
   data/
-    mockData.ts       Mock learner profile and activity/feedback data (demo mode)
-    coursePresets.ts  Starter activity lists for preset courses (real mode)
-    deriveInsights.ts Derives strengths/improvements/recommendation from real activity data
-    aiTutor.ts        Simulated AI tutor responses (keyword-based, no real LLM call)
-    liveAi.ts         Optional "bring your own key" OpenAI integration with graceful fallback
-    learningPlan.ts   Generates a personalized learning plan from profile + activity data
+    mockData.ts         Mock learner profile and activity/feedback data (demo mode)
+    coursePresets.ts    Starter activity lists for preset courses (real mode)
+    deriveInsights.ts   Derives strengths/improvements/recommendation from real activity data
+    aiTutor.ts          Simulated AI tutor responses (keyword-based, no real LLM call)
+    liveAi.ts           Optional "bring your own key" OpenAI integration with graceful fallback
+    learningPlan.ts     Generates a personalized learning plan from profile + activity data
   hooks/
-    useTheme.ts        Light/dark theme state, persisted to localStorage
-    useAuth.ts         Supabase auth session state (real mode)
-    useCourseData.ts   Courses/activities data + grading actions (real mode)
+    useTheme.ts             Light/dark theme state, persisted to localStorage
+    useAuth.ts              Supabase auth session state (real mode)
+    useCourseData.ts        Courses/activities data + grading/live-quiz actions (real mode)
+    useLearnerCompanion.ts  Demo mode's in-memory activity/chat/feedback state (App.tsx)
   services/
-    supabaseClient.ts  Supabase client, only created when configured
-    courseService.ts   Supabase CRUD for courses/activities + grading requests
+    supabaseClient.ts   Supabase client, only created when configured
+    courseService.ts    Supabase CRUD for courses/activities + grading/live-quiz requests
+    aiService.ts        Demo mode's simulated AI feedback/recommendation logic
+  utils/
+    duration.ts         Formats minute counts as human-readable durations (e.g. "1h 15m")
   test/
-    setup.ts          Test environment setup (jest-dom matchers, cleanup, jsdom polyfills)
-  types/index.ts      Shared TypeScript types
+    setup.ts           Test environment setup (jest-dom matchers, cleanup, jsdom polyfills)
+  types/
+    index.ts           Shared TypeScript types (activities, feedback, quiz questions, etc.)
+    database.ts        Types matching the Supabase schema (real mode)
   App.tsx             Demo mode dashboard (mock data)
   RealApp.tsx         Real mode dashboard (Supabase-backed, multi-course, AI-graded)
   main.tsx            Picks App vs. RealApp based on whether Supabase is configured
 supabase/
-  schema.sql        Postgres schema + Row Level Security policies for real mode
+  schema.sql          Postgres schema + Row Level Security policies for real mode
 ```
 
 Component and data files with matching `*.test.tsx` / `*.test.ts` files alongside them contain
