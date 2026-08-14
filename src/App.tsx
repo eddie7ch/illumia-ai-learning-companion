@@ -35,6 +35,13 @@ function App() {
   } = useLearnerCompanion();
   const { theme, toggleTheme } = useTheme();
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [pendingQuizActivityId, setPendingQuizActivityId] = useState<string | null>(null);
+
+  const handleStartQuizInChat = (activityId: string) => {
+    setPendingQuizActivityId(activityId);
+    setIsChatOpen(true);
+    document.getElementById('ai-tutor-chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <StudySessionProvider>
@@ -79,13 +86,18 @@ function App() {
                 />
                 <RecommendationCard recommendation={profile.recommendation} />
                 <LearningPlan steps={learningPlan} />
-                <ActivityList activities={activities} onCompleteQuiz={completeActivity} onTimeSpent={logTimeSpent} />
+                <ActivityList
+                  activities={activities}
+                  onCompleteQuiz={completeActivity}
+                  onTimeSpent={logTimeSpent}
+                  onStartQuizInChat={handleStartQuizInChat}
+                />
               </>
             )}
           </div>
 
           <div className="hidden lg:col-span-1 lg:block xl:col-span-2">
-            <div className="lg:sticky lg:top-6">
+            <div id="ai-tutor-chat-panel" className="lg:sticky lg:top-6">
               {isLoading ? (
                 <ChatSkeleton />
               ) : (
@@ -98,6 +110,8 @@ function App() {
                   onSend={sendMessage}
                   activities={activities}
                   onCompleteQuiz={completeActivity}
+                  autoStartQuizId={pendingQuizActivityId}
+                  onAutoStartQuizHandled={() => setPendingQuizActivityId(null)}
                 />
               )}
             </div>
@@ -128,6 +142,8 @@ function App() {
               onSend={sendMessage}
               activities={activities}
               onCompleteQuiz={completeActivity}
+              autoStartQuizId={pendingQuizActivityId}
+              onAutoStartQuizHandled={() => setPendingQuizActivityId(null)}
             />
           )}
         </Drawer>

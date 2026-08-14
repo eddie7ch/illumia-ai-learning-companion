@@ -21,6 +21,10 @@ interface AiTutorChatProps {
   onSend: (question: string) => void;
   activities?: Activity[];
   onCompleteQuiz?: (activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => void;
+  /** Set (e.g. from an activity card's "Take in AI chat" button) to jump straight into that quiz. */
+  autoStartQuizId?: string | null;
+  /** Called once the requested auto-start quiz has been opened, so the caller can clear the request. */
+  onAutoStartQuizHandled?: () => void;
 }
 
 export default function AiTutorChat({
@@ -32,6 +36,8 @@ export default function AiTutorChat({
   onSend,
   activities,
   onCompleteQuiz,
+  autoStartQuizId,
+  onAutoStartQuizHandled,
 }: AiTutorChatProps) {
   const [draft, setDraft] = useState('');
   const [showKeyPanel, setShowKeyPanel] = useState(false);
@@ -49,6 +55,12 @@ export default function AiTutorChat({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, isThinking]);
+
+  useEffect(() => {
+    if (!autoStartQuizId) return;
+    setActiveQuizId(autoStartQuizId);
+    onAutoStartQuizHandled?.();
+  }, [autoStartQuizId]);
 
   useEffect(() => {
     if (!isFullscreen) return;

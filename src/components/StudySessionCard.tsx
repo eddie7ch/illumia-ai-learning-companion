@@ -1,6 +1,6 @@
 import { Play, Square } from 'lucide-react';
 import { useStudySession } from '../context/useStudySession';
-import { formatDuration } from '../utils/duration';
+import { formatDurationMs } from '../utils/duration';
 
 function formatElapsed(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -72,7 +72,7 @@ export default function StudySessionCard() {
           <div className="rounded-lg bg-emerald-50 p-2 text-center dark:bg-emerald-500/10">
             <p className="text-xs text-emerald-700 dark:text-emerald-400">Active time</p>
             <p className="font-semibold text-emerald-800 dark:text-emerald-300">
-              {formatDuration(Math.round(report.activeMs / 60000))}
+              {formatDurationMs(report.activeMs)}
             </p>
           </div>
 
@@ -82,7 +82,7 @@ export default function StudySessionCard() {
                 <li key={entry.label} className="flex items-center justify-between">
                   <span>{entry.label}</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {formatDuration(Math.round(entry.ms / 60000))}
+                    {formatDurationMs(entry.ms)}
                   </span>
                 </li>
               ))}
@@ -113,7 +113,7 @@ function buildInsight(report: { totalMs: number; activeMs: number; idleMs: numbe
   }
   const top = report.byLabel[0];
   if (top) {
-    return `You spent the most time on "${top.label}" (${formatDuration(Math.round(top.ms / 60000))}).`;
+    return `You spent the most time on "${top.label}" (${formatDurationMs(top.ms)}).`;
   }
   if (report.activeMs === 0) {
     return 'No active time was recorded for this session.';

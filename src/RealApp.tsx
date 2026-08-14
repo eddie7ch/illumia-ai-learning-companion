@@ -101,8 +101,14 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
   const [isThinking, setIsThinking] = useState(false);
   const [liveAiNotice, setLiveAiNotice] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [pendingQuizActivityId, setPendingQuizActivityId] = useState<string | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+
+  const handleStartQuizInChat = (activityId: string) => {
+    setPendingQuizActivityId(activityId);
+    document.getElementById('ai-tutor-chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const sendMessage = useCallback(
     async (question: string) => {
@@ -218,13 +224,14 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
                     onCompleteQuiz={completeQuiz}
                     onTimeSpent={logTimeSpent}
                     onRequestQuiz={requestQuiz}
+                    onStartQuizInChat={handleStartQuizInChat}
                   />
                 </>
               )}
             </div>
 
             <div className="hidden lg:col-span-1 lg:block xl:col-span-2">
-              <div className="lg:sticky lg:top-6">
+              <div id="ai-tutor-chat-panel" className="lg:sticky lg:top-6">
                 {isLoading ? (
                   <ChatSkeleton />
                 ) : (
@@ -237,6 +244,8 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
                     onSend={sendMessage}
                     activities={activities}
                     onCompleteQuiz={completeQuiz}
+                    autoStartQuizId={pendingQuizActivityId}
+                    onAutoStartQuizHandled={() => setPendingQuizActivityId(null)}
                   />
                 )}
               </div>

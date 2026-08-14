@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { BookOpen, Code2, HelpCircle, Sparkles } from 'lucide-react';
+import { BookOpen, Code2, HelpCircle, MessageCircle, Sparkles } from 'lucide-react';
 import type { Activity, AiFeedback, QuizQuestion } from '../types';
 import { formatDuration } from '../utils/duration';
 import Drawer from './Drawer';
@@ -14,6 +14,8 @@ interface ActivityCardProps {
   onTimeSpent?: (activityId: string, additionalMinutes: number) => void;
   /** When provided, quizzes are generated live by a real AI model instead of using a fixed question bank. */
   onRequestQuiz?: (activity: Activity) => Promise<QuizQuestion[]>;
+  /** When provided, shows a shortcut to take this quiz inside the AI tutor chat instead of the drawer. */
+  onStartQuizInChat?: (activityId: string) => void;
 }
 
 const typeLabels: Record<Activity['type'], string> = {
@@ -40,7 +42,14 @@ const statusLabels: Record<Activity['status'], string> = {
   'not-started': 'Not started',
 };
 
-export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQuiz, onTimeSpent, onRequestQuiz }: ActivityCardProps) {
+export default function ActivityCard({
+  activity,
+  onSubmitForGrading,
+  onCompleteQuiz,
+  onTimeSpent,
+  onRequestQuiz,
+  onStartQuizInChat,
+}: ActivityCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isQuizDrawerOpen, setIsQuizDrawerOpen] = useState(false);
   const [isReadDrawerOpen, setIsReadDrawerOpen] = useState(false);
@@ -58,6 +67,7 @@ export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQ
     activity.type === 'quiz' &&
     activity.status !== 'completed' &&
     (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0);
+  const canStartQuizInChat = canStartQuiz && Boolean(onStartQuizInChat) && (activity.questions?.length ?? 0) > 0;
   const hasReadingMaterial = activity.type === 'lesson' && Boolean(activity.content);
   const TypeIcon = typeIcons[activity.type];
   const quizQuestions = liveQuestions ?? activity.questions;
@@ -152,7 +162,7 @@ export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQ
       )}
 
       {canStartQuiz && (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={handleStartQuiz}
@@ -162,6 +172,17 @@ export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQ
             <HelpCircle className="h-4 w-4" aria-hidden="true" />
             Start quiz
           </button>
+
+          {canStartQuizInChat && (
+            <button
+              type="button"
+              onClick={() => onStartQuizInChat?.(activity.id)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+              Take in AI chat
+            </button>
+          )}
 
           <Drawer isOpen={isQuizDrawerOpen} onClose={() => setIsQuizDrawerOpen(false)} title={activity.title}>
             {isLoadingQuiz && (
