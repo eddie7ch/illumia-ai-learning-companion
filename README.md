@@ -205,3 +205,7 @@ Since the case study intentionally leaves some details open, the following assum
 Given more time, this could be extended with: proxying the live AI tutor through a small backend
 so real API keys never touch the client, multiple learning tracks/users, richer historical
 progress charts, and persisting learner state to a backend/database.
+
+- **Token streaming (SSE):** in a production implementation, `aiService.ts` would consume a
+  Server-Sent Events (SSE) `ReadableStream` from a backend API rather than resolving a single
+  Promise, rendering AI tutor responses token-by-token in real time instead of all at once.

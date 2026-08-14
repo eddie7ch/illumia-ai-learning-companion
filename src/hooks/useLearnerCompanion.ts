@@ -19,10 +19,17 @@ export function useLearnerCompanion() {
   const [liveAiNotice, setLiveAiNotice] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
 
-  const messagesRef = useRef<ChatMessage[]>(messages);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  // Kept in lockstep with every setMessages call below (not via a useEffect) so
+  // sendMessage always reads the latest history, even across rapid calls in the same tick.
+  const messagesRef = useRef<ChatMessage[]>([]);
+
+  const appendMessage = useCallback((message: ChatMessage) => {
+    setMessages((prev) => {
+      const next = [...prev, message];
+      messagesRef.current = next;
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,10 +42,12 @@ export function useLearnerCompanion() {
       const plan = await fetchLearningPlan(loadedProfile, loadedActivities);
       if (cancelled) return;
 
+      const welcome = fetchInitialChatMessages();
+      messagesRef.current = welcome;
       setProfile(loadedProfile);
       setActivities(loadedActivities);
       setLearningPlan(plan);
-      setMessages(fetchInitialChatMessages());
+      setMessages(welcome);
       setIsLoading(false);
     })();
 
@@ -54,18 +63,19 @@ export function useLearnerCompanion() {
 
       const history = messagesRef.current;
       const learnerMessage: ChatMessage = { id: `learner-${Date.now()}`, role: 'learner', text: trimmed };
-      setMessages((prev) => [...prev, learnerMessage]);
+      appendMessage(learnerMessage);
       setIsThinking(true);
       setLiveAiNotice(null);
 
       const reply = await requestTutorReply(trimmed, history, apiKey);
 
-      setMessages((prev) => [...prev, { id: `ai-${Date.now()}`, role: 'ai', text: reply.text }]);
+      appendMessage({ id: `ai-${Date.now()}`, role: 'ai', text: reply.text });
       if (reply.notice) setLiveAiNotice(reply.notice);
       setIsThinking(false);
     },
-    [apiKey, isThinking],
+    [apiKey, isThinking, appendMessage],
   );
+
 
   return {
     isLoading,
