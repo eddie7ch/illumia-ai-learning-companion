@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowLeft, KeyRound, ListChecks, Maximize2, Minimize2, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, KeyRound, ListChecks, Loader2, Maximize2, Minimize2, Send, Sparkles } from 'lucide-react';
 import type { Activity, AiFeedback, ChatMessage, QuizQuestion } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import QuizRunner from './QuizRunner';
@@ -187,7 +187,10 @@ export default function AiTutorChat({
           </button>
           <p className="mb-4 text-sm font-semibold text-slate-900 dark:text-slate-100">{activeQuiz.title}</p>
           {isLoadingQuiz && (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Asking a real AI model to write fresh quiz questions…</p>
+            <p className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Asking a real AI model to write fresh quiz questions…
+            </p>
           )}
           {quizError && !isLoadingQuiz && (
             <div className="space-y-2">

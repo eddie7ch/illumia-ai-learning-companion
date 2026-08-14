@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { BookOpen, Code2, HelpCircle, MessageCircle, RotateCcw, Sparkles } from 'lucide-react';
+import { BookOpen, Code2, HelpCircle, Loader2, MessageCircle, RotateCcw, Sparkles } from 'lucide-react';
 import type { Activity, AiFeedback, QuizQuestion } from '../types';
 import { formatDuration } from '../utils/duration';
 import Drawer from './Drawer';
@@ -192,7 +192,10 @@ export default function ActivityCard({
 
           <Drawer isOpen={isQuizDrawerOpen} onClose={() => setIsQuizDrawerOpen(false)} title={activity.title}>
             {isLoadingQuiz && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">Asking a real AI model to write fresh quiz questions…</p>
+              <p className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Asking a real AI model to write fresh quiz questions…
+              </p>
             )}
             {quizError && !isLoadingQuiz && (
               <div className="space-y-2">
