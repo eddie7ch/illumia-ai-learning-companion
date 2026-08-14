@@ -16,9 +16,9 @@ function activity(id: string, score: number, completedOn: string): Activity {
 }
 
 describe('ProgressTrend', () => {
-  it('renders nothing when fewer than two graded activities exist', () => {
-    const { container } = render(<ProgressTrend activities={[activity('1', 80, '2026-01-01')]} />);
-    expect(container).toBeEmptyDOMElement();
+  it('shows an empty state when fewer than two graded activities exist', () => {
+    render(<ProgressTrend activities={[activity('1', 80, '2026-01-01')]} />);
+    expect(screen.getByText(/complete at least two graded activities/i)).toBeInTheDocument();
   });
 
   it('renders a chart summarizing an upward score trend', () => {

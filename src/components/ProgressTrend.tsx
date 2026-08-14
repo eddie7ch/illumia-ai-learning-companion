@@ -13,7 +13,16 @@ export default function ProgressTrend({ activities }: ProgressTrendProps) {
     .filter((activity) => activity.feedback && activity.completedOn)
     .sort((a, b) => (a.completedOn! < b.completedOn! ? -1 : 1));
 
-  if (scored.length < 2) return null;
+  if (scored.length < 2) {
+    return (
+      <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Score trend</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Complete at least two graded activities to see your score trend over time.
+        </p>
+      </section>
+    );
+  }
 
   const scores = scored.map((activity) => activity.feedback!.score);
   const min = Math.min(...scores, 60);

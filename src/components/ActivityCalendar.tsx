@@ -54,7 +54,16 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
     byDate.set(activity.completedOn, entry);
   });
 
-  if (byDate.size === 0) return null;
+  if (byDate.size === 0) {
+    return (
+      <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Progress calendar</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          No activity yet. Complete an activity to start building your calendar.
+        </p>
+      </section>
+    );
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

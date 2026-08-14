@@ -9,6 +9,7 @@ import AiTutorChat from './components/AiTutorChat';
 import ProgressTrend from './components/ProgressTrend';
 import ActivityCalendar from './components/ActivityCalendar';
 import ThemeToggle from './components/ThemeToggle';
+import LiveClock from './components/LiveClock';
 import MasteryBadge from './components/MasteryBadge';
 import Drawer from './components/Drawer';
 import StudySessionCard from './components/StudySessionCard';
@@ -55,6 +56,7 @@ function App() {
               Welcome back, {profile?.name.split(' ')[0] ?? 'there'}
               {profile && <MasteryBadge track={profile.track} progress={profile.overallProgress} />}
             </h1>
+            <LiveClock />
           </div>
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </div>
@@ -94,6 +96,8 @@ function App() {
                   apiKey={apiKey}
                   onApiKeyChange={setApiKey}
                   onSend={sendMessage}
+                  activities={activities}
+                  onCompleteQuiz={completeActivity}
                 />
               )}
             </div>
@@ -122,6 +126,8 @@ function App() {
               apiKey={apiKey}
               onApiKeyChange={setApiKey}
               onSend={sendMessage}
+              activities={activities}
+              onCompleteQuiz={completeActivity}
             />
           )}
         </Drawer>

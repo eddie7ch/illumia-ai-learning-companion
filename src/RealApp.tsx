@@ -25,6 +25,7 @@ import LearningPlan from './components/LearningPlan';
 import ActivityList from './components/ActivityList';
 import AiTutorChat from './components/AiTutorChat';
 import ThemeToggle from './components/ThemeToggle';
+import LiveClock from './components/LiveClock';
 import StudySessionCard from './components/StudySessionCard';
 import { DashboardSkeleton, ChatSkeleton } from './components/Skeleton';
 import { StudySessionProvider } from './context/StudySessionContext';
@@ -155,6 +156,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
             <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 sm:text-2xl">
               {isGuest ? 'Welcome' : `Welcome back${userEmail ? `, ${userEmail.split('@')[0]}` : ''}`}
             </h1>
+            <LiveClock />
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle theme={theme} onToggle={onToggleTheme} />
@@ -231,6 +233,8 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
                     apiKey={apiKey}
                     onApiKeyChange={setApiKey}
                     onSend={sendMessage}
+                    activities={activities}
+                    onCompleteQuiz={completeQuiz}
                   />
                 )}
               </div>

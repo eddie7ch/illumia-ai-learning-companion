@@ -23,15 +23,15 @@ function activity(id: string, completedOn: string, timeSpentMinutes: number): Ac
 }
 
 describe('ActivityCalendar', () => {
-  it('renders nothing when no activity has a completion date', () => {
-    const { container } = render(
+  it('shows an empty state when no activity has a completion date', () => {
+    render(
       <ActivityCalendar
         activities={[
           { id: '1', title: 'Untouched', type: 'lesson', topic: 'Testing', status: 'not-started' },
         ]}
       />,
     );
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByText(/no activity yet/i)).toBeInTheDocument();
   });
 
   it('summarizes total time invested and active days', () => {
