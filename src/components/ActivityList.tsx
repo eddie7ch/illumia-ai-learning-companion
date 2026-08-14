@@ -1,19 +1,29 @@
-import type { Activity } from '../types';
+import type { Activity, AiFeedback } from '../types';
 import ActivityCard from './ActivityCard';
 
 interface ActivityListProps {
   activities: Activity[];
+  onSubmitForGrading?: (activity: Activity, submission: string, minutes: number) => Promise<void>;
+  onCompleteQuiz?: (activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => void;
 }
 
-export default function ActivityList({ activities }: ActivityListProps) {
+export default function ActivityList({ activities, onSubmitForGrading, onCompleteQuiz }: ActivityListProps) {
   return (
     <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
       <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Your activities</h2>
       <ul className="space-y-3">
         {activities.map((activity) => (
-          <ActivityCard key={activity.id} activity={activity} />
+          <ActivityCard
+            key={activity.id}
+            activity={activity}
+            onSubmitForGrading={
+              onSubmitForGrading ? (submission, minutes) => onSubmitForGrading(activity, submission, minutes) : undefined
+            }
+            onCompleteQuiz={onCompleteQuiz}
+          />
         ))}
       </ul>
     </section>
   );
 }
+

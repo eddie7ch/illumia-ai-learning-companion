@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Activity, ChatMessage, LearnerProfile, LearningPlanStep } from '../types';
+import type { Activity, AiFeedback, ChatMessage, LearnerProfile, LearningPlanStep } from '../types';
 import {
   fetchActivities,
   fetchInitialChatMessages,
@@ -63,6 +63,17 @@ export function useLearnerCompanion() {
     };
   }, []);
 
+  const completeActivity = useCallback((activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => {
+    const completedOn = new Date().toISOString().slice(0, 10);
+    setActivities((prev) =>
+      prev.map((activity) =>
+        activity.id === activityId
+          ? { ...activity, status: 'completed', feedback, completedOn, timeSpentMinutes }
+          : activity,
+      ),
+    );
+  }, []);
+
   const sendMessage = useCallback(
     async (question: string) => {
       const trimmed = question.trim();
@@ -106,5 +117,6 @@ export function useLearnerCompanion() {
     apiKey,
     setApiKey,
     sendMessage,
+    completeActivity,
   };
 }

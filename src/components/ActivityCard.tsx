@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { BookOpen, Code2, HelpCircle, Sparkles } from 'lucide-react';
-import type { Activity } from '../types';
+import type { Activity, AiFeedback } from '../types';
+import { formatDuration } from '../utils/duration';
 import Drawer from './Drawer';
+import FeedbackPanel from './FeedbackPanel';
+import QuizRunner from './QuizRunner';
+import type { QuizResult } from './QuizRunner';
 
 interface ActivityCardProps {
   activity: Activity;
+  onSubmitForGrading?: (submission: string, minutes: number) => Promise<void>;
+  onCompleteQuiz?: (activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => void;
 }
 
 const typeLabels: Record<Activity['type'], string> = {
@@ -31,10 +37,34 @@ const statusLabels: Record<Activity['status'], string> = {
   'not-started': 'Not started',
 };
 
-export default function ActivityCard({ activity }: ActivityCardProps) {
+export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQuiz }: ActivityCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isQuizDrawerOpen, setIsQuizDrawerOpen] = useState(false);
+  const [isSubmitOpen, setIsSubmitOpen] = useState(false);
+  const [submission, setSubmission] = useState('');
+  const [minutes, setMinutes] = useState('');
+  const [isGrading, setIsGrading] = useState(false);
+  const [gradingError, setGradingError] = useState<string | null>(null);
   const hasFeedback = Boolean(activity.feedback);
+  const canStartQuiz =
+    activity.type === 'quiz' && activity.status !== 'completed' && (activity.questions?.length ?? 0) > 0;
   const TypeIcon = typeIcons[activity.type];
+
+  const handleSubmitForGrading = async () => {
+    if (!onSubmitForGrading || !submission.trim() || isGrading) return;
+    setIsGrading(true);
+    setGradingError(null);
+    try {
+      await onSubmitForGrading(submission.trim(), Math.max(0, Number(minutes) || 0));
+      setSubmission('');
+      setMinutes('');
+      setIsSubmitOpen(false);
+    } catch (err) {
+      setGradingError(err instanceof Error ? err.message : 'Grading failed. Please try again.');
+    } finally {
+      setIsGrading(false);
+    }
+  };
 
   return (
     <li className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition-shadow hover:shadow-md dark:bg-slate-800 dark:ring-slate-700">
@@ -45,8 +75,12 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
             {typeLabels[activity.type]} · {activity.topic}
           </p>
           <p className="font-semibold text-slate-900 dark:text-slate-100">{activity.title}</p>
-          {activity.completedOn && (
-            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Completed {activity.completedOn}</p>
+          {(activity.completedOn || activity.timeSpentMinutes) && (
+            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+              {activity.completedOn && `Completed ${activity.completedOn}`}
+              {activity.completedOn && activity.timeSpentMinutes ? ' · ' : ''}
+              {activity.timeSpentMinutes ? `${formatDuration(activity.timeSpentMinutes)} spent` : ''}
+            </p>
           )}
         </div>
         <span
@@ -55,6 +89,31 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
           {statusLabels[activity.status]}
         </span>
       </div>
+
+      {canStartQuiz && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setIsQuizDrawerOpen(true)}
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+          >
+            <HelpCircle className="h-4 w-4" aria-hidden="true" />
+            Start quiz
+          </button>
+
+          <Drawer isOpen={isQuizDrawerOpen} onClose={() => setIsQuizDrawerOpen(false)} title={activity.title}>
+            {activity.questions && (
+              <QuizRunner
+                questions={activity.questions}
+                onSubmit={(result: QuizResult) =>
+                  onCompleteQuiz?.(activity.id, result.feedback, result.timeSpentMinutes)
+                }
+              />
+            )}
+          </Drawer>
+        </div>
+      )}
 
       {hasFeedback && (
         <div className="mt-3">
@@ -69,39 +128,66 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
           </button>
 
           <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title={activity.title}>
-            {activity.feedback && (
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm text-slate-500 dark:text-slate-400">Score</span>
-                  <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {activity.feedback.score}/100
-                  </span>
-                </div>
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                      Strengths
-                    </p>
-                    <ul className="mt-1 space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                      {activity.feedback.strengths.map((item) => (
-                        <li key={item}>• {item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                      Suggestions
-                    </p>
-                    <ul className="mt-1 space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                      {activity.feedback.suggestions.map((item) => (
-                        <li key={item}>• {item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
+            {activity.feedback && <FeedbackPanel feedback={activity.feedback} />}
           </Drawer>
+        </div>
+      )}
+
+      {onSubmitForGrading && activity.status !== 'completed' && (
+        <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-700">
+          {!isSubmitOpen ? (
+            <button
+              type="button"
+              onClick={() => setIsSubmitOpen(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Submit for AI grading
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <label htmlFor={`submission-${activity.id}`} className="sr-only">
+                Your answer or code for {activity.title}
+              </label>
+              <textarea
+                id={`submission-${activity.id}`}
+                value={submission}
+                onChange={(event) => setSubmission(event.target.value)}
+                rows={4}
+                placeholder="Paste your answer, code, or notes for this activity…"
+                className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor={`minutes-${activity.id}`} className="text-xs text-slate-500 dark:text-slate-400">
+                  Minutes spent
+                </label>
+                <input
+                  id={`minutes-${activity.id}`}
+                  type="number"
+                  min={0}
+                  value={minutes}
+                  onChange={(event) => setMinutes(event.target.value)}
+                  className="w-20 rounded-md border border-slate-200 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  disabled={isGrading || !submission.trim()}
+                  onClick={handleSubmitForGrading}
+                  className="ml-auto rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {isGrading ? 'Grading…' : 'Submit'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSubmitOpen(false)}
+                  className="rounded-md px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                  Cancel
+                </button>
+              </div>
+              {gradingError && <p className="text-sm text-red-600 dark:text-red-400">{gradingError}</p>}
+            </div>
+          )}
         </div>
       )}
     </li>

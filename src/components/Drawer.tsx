@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useStudySession } from '../context/StudySessionContext';
 
 interface DrawerProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ interface DrawerProps {
 
 /** A slide-in drawer (right-hand side) used for details that would otherwise need a separate page. */
 export default function Drawer({ isOpen, onClose, title, children }: DrawerProps) {
+  const { setFocusLabel } = useStudySession();
+
   useEffect(() => {
     if (!isOpen) return;
     function handleKeyDown(event: KeyboardEvent) {
@@ -19,6 +22,13 @@ export default function Drawer({ isOpen, onClose, title, children }: DrawerProps
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Report this drawer's title as the study session's current focus while it's open.
+  useEffect(() => {
+    if (!isOpen) return;
+    setFocusLabel(title);
+    return () => setFocusLabel(null);
+  }, [isOpen, title, setFocusLabel]);
 
   return (
     <div className={`fixed inset-0 z-40 ${isOpen ? '' : 'pointer-events-none'}`} aria-hidden={!isOpen}>

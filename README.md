@@ -122,6 +122,43 @@ Security notes (this is a demo pattern, not a production one):
 - If the request fails (bad key, network error, timeout), the chat automatically falls back to
   the simulated responder and shows an inline notice rather than breaking the experience.
 
+## Real mode (optional): accounts, persistence, and AI-graded courses
+
+By default this app runs as the **demo prototype** described above: one fixed learner, mock data,
+nothing persists. There's also an optional **real mode** that turns it into something you can
+actually use for your own learning:
+
+- **Real accounts** — email/password sign-up and sign-in via [Supabase Auth](https://supabase.com/auth).
+- **Persisted courses and activities** — stored in a Postgres database with Row Level Security, so
+  each learner only ever sees their own data, and progress survives a reload.
+- **Multiple, customizable courses** — pick from a few presets (`src/data/coursePresets.ts`: React,
+  Python, JavaScript, Data Structures & Algorithms) or build your own by naming a course and
+  listing topics.
+- **AI-graded activities** — submit an answer/code for any activity and a serverless function
+  (`api/grade.ts`) grades it with OpenAI, using a **server-only** API key that never reaches the
+  browser (unlike the client-side "bring your own key" tutor chat above).
+
+Real mode activates automatically once Supabase is configured; otherwise the app falls back to the
+demo experience, so the existing [live demo](https://illumia-one.vercel.app) keeps working
+unchanged.
+
+### Setup
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the project's SQL Editor, run [`supabase/schema.sql`](supabase/schema.sql) once to create the
+   `profiles`, `courses`, and `activities` tables and their RLS policies.
+3. Copy `.env.example` to `.env` and fill in your project's **URL** and **anon public key** (Project
+   Settings → API). Both are safe to expose client-side — Supabase's Row Level Security, not
+   secrecy of this key, is what protects each user's data.
+4. For AI grading, set these as **server-only** environment variables (in Vercel's dashboard for a
+   deployed app, or a local `.env` read by `vercel dev`) — never commit them or paste them into
+   client code:
+   - `OPENAI_API_KEY` — your own OpenAI key.
+   - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — same values as step 3 (the serverless
+     function re-validates the caller's session token independently of the browser).
+5. Run `npm run dev` (or deploy) — once `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are present,
+   the app boots into real mode and prompts you to sign up.
+
 ## Getting started
 
 Requires [Node.js](https://nodejs.org/) 18+ and npm.
@@ -149,20 +186,33 @@ npm run preview
 ## Project structure
 
 ```
+api/
+  grade.ts          Serverless endpoint: AI-grades a submission using a server-only OpenAI key
 src/
-  components/       UI components (progress, trend chart, strengths, activities, learning plan,
-                     AI tutor chat, theme toggle)
+  components/       UI components (progress, trend chart, calendar, strengths, activities,
+                     learning plan, AI tutor chat, auth, course switcher, theme toggle)
   data/
-    mockData.ts     Mock learner profile and activity/feedback data
-    aiTutor.ts       Simulated AI tutor responses (keyword-based, no real LLM call)
-    liveAi.ts        Optional "bring your own key" OpenAI integration with graceful fallback
-    learningPlan.ts  Generates a personalized learning plan from profile + activity data
+    mockData.ts       Mock learner profile and activity/feedback data (demo mode)
+    coursePresets.ts  Starter activity lists for preset courses (real mode)
+    deriveInsights.ts Derives strengths/improvements/recommendation from real activity data
+    aiTutor.ts        Simulated AI tutor responses (keyword-based, no real LLM call)
+    liveAi.ts         Optional "bring your own key" OpenAI integration with graceful fallback
+    learningPlan.ts   Generates a personalized learning plan from profile + activity data
   hooks/
-    useTheme.ts      Light/dark theme state, persisted to localStorage
+    useTheme.ts        Light/dark theme state, persisted to localStorage
+    useAuth.ts         Supabase auth session state (real mode)
+    useCourseData.ts   Courses/activities data + grading actions (real mode)
+  services/
+    supabaseClient.ts  Supabase client, only created when configured
+    courseService.ts   Supabase CRUD for courses/activities + grading requests
   test/
-    setup.ts         Test environment setup (jest-dom matchers, cleanup, jsdom polyfills)
-  types.ts          Shared TypeScript types
-  App.tsx           Page layout wiring all sections together
+    setup.ts          Test environment setup (jest-dom matchers, cleanup, jsdom polyfills)
+  types/index.ts      Shared TypeScript types
+  App.tsx             Demo mode dashboard (mock data)
+  RealApp.tsx         Real mode dashboard (Supabase-backed, multi-course, AI-graded)
+  main.tsx            Picks App vs. RealApp based on whether Supabase is configured
+supabase/
+  schema.sql        Postgres schema + Row Level Security policies for real mode
 ```
 
 Component and data files with matching `*.test.tsx` / `*.test.ts` files alongside them contain
@@ -208,10 +258,23 @@ Since the case study intentionally leaves some details open, the following assum
 
 ## Possible next steps
 
-Given more time, this could be extended with: proxying the live AI tutor through a small backend
-so real API keys never touch the client, multiple learning tracks/users, richer historical
-progress charts, and persisting learner state to a backend/database.
+Given more time, this could be extended with: proxying the live AI tutor chat through a backend so
+real API keys never touch the client (the AI-grading endpoint already does this), multi-user
+course sharing/leaderboards, and richer progress analytics beyond the calendar/trend chart.
 
 - **Token streaming (SSE):** in a production implementation, `aiService.ts` would consume a
   Server-Sent Events (SSE) `ReadableStream` from a backend API rather than resolving a single
   Promise, rendering AI tutor responses token-by-token in real time instead of all at once.
+- **Automatic live progress tracking (explored, not built):** we discussed using screen
+  sharing/screen recording (the browser's `getDisplayMedia` API) so the app could automatically
+  detect what a learner is working on and for how long, instead of relying on manually marking
+  activities complete. We deliberately did not build this for the case study because: (1) it
+  requires a real permission prompt every session and only sees whatever tab/window/screen the
+  user chooses to share — it cannot observe other apps or tabs, so it's not true "screen
+  monitoring"; (2) turning captured video into meaningful activity data needs OCR/computer-vision
+  analysis, which is unreliable and a large engineering effort on its own; and (3) it raises real
+  privacy concerns for a portfolio prototype (consent, no recording/storage of screen content,
+  clear stop controls). A safer, privacy-preserving version of the same idea — an in-app "Study
+  Session Tracker" using only Page Visibility/focus and input events (no video, no permissions,
+  nothing ever leaves the browser) to build a time-on-activity timeline and idle/active
+  breakdown — is a promising future direction we may build next.

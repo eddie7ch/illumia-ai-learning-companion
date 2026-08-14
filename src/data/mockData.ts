@@ -29,6 +29,7 @@ export const activities: Activity[] = [
     topic: 'Fundamentals',
     status: 'completed',
     completedOn: '2026-07-20',
+    timeSpentMinutes: 25,
   },
   {
     id: 'lesson-2',
@@ -37,6 +38,7 @@ export const activities: Activity[] = [
     topic: 'Fundamentals',
     status: 'completed',
     completedOn: '2026-07-22',
+    timeSpentMinutes: 35,
   },
   {
     id: 'exercise-1',
@@ -45,6 +47,7 @@ export const activities: Activity[] = [
     topic: 'State Management',
     status: 'completed',
     completedOn: '2026-07-28',
+    timeSpentMinutes: 60,
     feedback: {
       score: 85,
       strengths: [
@@ -64,6 +67,7 @@ export const activities: Activity[] = [
     topic: 'Fundamentals',
     status: 'completed',
     completedOn: '2026-07-29',
+    timeSpentMinutes: 20,
     feedback: {
       score: 92,
       strengths: [
@@ -82,6 +86,7 @@ export const activities: Activity[] = [
     topic: 'Async & Effects',
     status: 'completed',
     completedOn: '2026-08-05',
+    timeSpentMinutes: 75,
     feedback: {
       score: 74,
       strengths: [
@@ -100,6 +105,7 @@ export const activities: Activity[] = [
     type: 'lesson',
     topic: 'Performance',
     status: 'in-progress',
+    timeSpentMinutes: 15,
   },
   {
     id: 'exercise-3',
@@ -114,6 +120,39 @@ export const activities: Activity[] = [
     type: 'quiz',
     topic: 'Testing',
     status: 'not-started',
+    questions: [
+      {
+        id: 'q1',
+        prompt: 'Which Testing Library query should you prefer for an interactive button?',
+        choices: ['getByTestId', 'getByRole', 'getByClassName', 'querySelector'],
+        correctIndex: 1,
+        explanation: 'getByRole reflects how assistive tech and users find elements, so prefer it over test IDs or class names.',
+      },
+      {
+        id: 'q2',
+        prompt: 'What does `userEvent.click()` simulate more accurately than `fireEvent.click()`?',
+        choices: [
+          'Nothing, they are identical',
+          'The full sequence of real user interactions (hover, focus, click)',
+          'Server-side rendering',
+          'CSS animations',
+        ],
+        correctIndex: 1,
+        explanation: '`userEvent` fires the full realistic event sequence a browser would dispatch, catching more bugs than a single synthetic event.',
+      },
+      {
+        id: 'q3',
+        prompt: 'In a React component test, why mock the network/service layer instead of letting real requests fire?',
+        choices: [
+          'It makes tests slower',
+          'It keeps tests fast, deterministic, and independent of a live backend',
+          'It is required by TypeScript',
+          'It improves code coverage automatically',
+        ],
+        correctIndex: 1,
+        explanation: 'Mocking the service layer removes network flakiness and lets you control exactly what data a test exercises.',
+      },
+    ],
   },
 ];
 

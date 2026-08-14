@@ -7,12 +7,15 @@ import LearningPlan from './components/LearningPlan';
 import ActivityList from './components/ActivityList';
 import AiTutorChat from './components/AiTutorChat';
 import ProgressTrend from './components/ProgressTrend';
+import ActivityCalendar from './components/ActivityCalendar';
 import ThemeToggle from './components/ThemeToggle';
 import MasteryBadge from './components/MasteryBadge';
 import Drawer from './components/Drawer';
+import StudySessionCard from './components/StudySessionCard';
 import { DashboardSkeleton, ChatSkeleton } from './components/Skeleton';
 import { useTheme } from './hooks/useTheme';
 import { useLearnerCompanion } from './hooks/useLearnerCompanion';
+import { StudySessionProvider } from './context/StudySessionContext';
 
 function App() {
   const {
@@ -26,11 +29,13 @@ function App() {
     apiKey,
     setApiKey,
     sendMessage,
+    completeActivity,
   } = useLearnerCompanion();
   const { theme, toggleTheme } = useTheme();
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
+    <StudySessionProvider>
     <div className="min-h-full bg-slate-50 dark:bg-slate-900">
       <a
         href="#main-content"
@@ -61,15 +66,17 @@ function App() {
               <DashboardSkeleton />
             ) : (
               <>
+                <StudySessionCard />
                 <ProgressOverview profile={profile} />
                 <ProgressTrend activities={activities} />
+                <ActivityCalendar activities={activities} />
                 <StrengthsAndImprovements
                   strengths={profile.strengths}
                   improvementAreas={profile.improvementAreas}
                 />
                 <RecommendationCard recommendation={profile.recommendation} />
                 <LearningPlan steps={learningPlan} />
-                <ActivityList activities={activities} />
+                <ActivityList activities={activities} onCompleteQuiz={completeActivity} />
               </>
             )}
           </div>
@@ -119,6 +126,7 @@ function App() {
         </Drawer>
       </div>
     </div>
+    </StudySessionProvider>
   );
 }
 

@@ -8,6 +8,14 @@ export interface AiFeedback {
   suggestions: string[];
 }
 
+export interface QuizQuestion {
+  id: string;
+  prompt: string;
+  choices: string[];
+  correctIndex: number;
+  explanation?: string;
+}
+
 export interface Activity {
   id: string;
   title: string;
@@ -15,7 +23,9 @@ export interface Activity {
   topic: string;
   status: ActivityStatus;
   completedOn?: string;
+  timeSpentMinutes?: number;
   feedback?: AiFeedback;
+  questions?: QuizQuestion[];
 }
 
 export interface Recommendation {
@@ -42,4 +52,24 @@ export interface LearningPlanStep {
   id: string;
   title: string;
   description: string;
+}
+
+export type SessionActivityKind = 'active' | 'idle' | 'away';
+
+export interface SessionSegment {
+  label: string;
+  kind: SessionActivityKind;
+  startedAt: number;
+  endedAt: number;
+}
+
+export interface SessionReport {
+  startedAt: number;
+  endedAt: number;
+  totalMs: number;
+  activeMs: number;
+  idleMs: number;
+  awayMs: number;
+  byLabel: Array<{ label: string; ms: number }>;
+  segments: SessionSegment[];
 }
