@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 import ProgressOverview from './components/ProgressOverview';
 import StrengthsAndImprovements from './components/StrengthsAndImprovements';
 import RecommendationCard from './components/RecommendationCard';
@@ -7,6 +9,7 @@ import AiTutorChat from './components/AiTutorChat';
 import ProgressTrend from './components/ProgressTrend';
 import ThemeToggle from './components/ThemeToggle';
 import MasteryBadge from './components/MasteryBadge';
+import Drawer from './components/Drawer';
 import { DashboardSkeleton, ChatSkeleton } from './components/Skeleton';
 import { useTheme } from './hooks/useTheme';
 import { useLearnerCompanion } from './hooks/useLearnerCompanion';
@@ -25,6 +28,7 @@ function App() {
     sendMessage,
   } = useLearnerCompanion();
   const { theme, toggleTheme } = useTheme();
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
     <div className="min-h-full bg-slate-50 dark:bg-slate-900">
@@ -70,7 +74,7 @@ function App() {
             )}
           </div>
 
-          <div className="lg:col-span-1 xl:col-span-2">
+          <div className="hidden lg:col-span-1 lg:block xl:col-span-2">
             <div className="lg:sticky lg:top-6">
               {isLoading ? (
                 <ChatSkeleton />
@@ -88,6 +92,32 @@ function App() {
           </div>
         </div>
       </main>
+
+      {!isLoading && (
+        <button
+          type="button"
+          onClick={() => setIsChatOpen(true)}
+          aria-label="Open AI tutor chat"
+          className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 lg:hidden"
+        >
+          <MessageCircle className="h-6 w-6" aria-hidden="true" />
+        </button>
+      )}
+
+      <div className="lg:hidden">
+        <Drawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} title="Ask your AI tutor">
+          {isChatOpen && (
+            <AiTutorChat
+              messages={messages}
+              isThinking={isThinking}
+              liveAiNotice={liveAiNotice}
+              apiKey={apiKey}
+              onApiKeyChange={setApiKey}
+              onSend={sendMessage}
+            />
+          )}
+        </Drawer>
+      </div>
     </div>
   );
 }

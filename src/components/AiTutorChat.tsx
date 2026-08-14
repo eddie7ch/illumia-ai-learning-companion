@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { KeyRound, Send, Sparkles } from 'lucide-react';
 import type { ChatMessage } from '../types';
@@ -29,6 +29,8 @@ export default function AiTutorChat({
   const [draft, setDraft] = useState('');
   const [showKeyPanel, setShowKeyPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const apiKeyInputId = useId();
+  const questionInputId = useId();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: 'nearest' });
@@ -81,14 +83,14 @@ export default function AiTutorChat({
       {showKeyPanel && (
         <div className="mt-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/40 dark:text-slate-300 dark:ring-slate-700">
           <label
-            htmlFor="tutor-api-key"
+            htmlFor={apiKeyInputId}
             className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-200"
           >
             <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
             OpenAI API key
           </label>
           <input
-            id="tutor-api-key"
+            id={apiKeyInputId}
             type="password"
             autoComplete="off"
             value={apiKey}
@@ -153,11 +155,11 @@ export default function AiTutorChat({
           ))}
         </div>
         <div className="flex gap-2">
-          <label htmlFor="tutor-question" className="sr-only">
+          <label htmlFor={questionInputId} className="sr-only">
             Ask a question
           </label>
           <input
-            id="tutor-question"
+            id={questionInputId}
             type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
