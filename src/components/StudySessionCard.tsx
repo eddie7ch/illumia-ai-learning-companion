@@ -69,25 +69,11 @@ export default function StudySessionCard() {
 
       {phase === 'ended' && report && (
         <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-lg bg-emerald-50 p-2 dark:bg-emerald-500/10">
-              <p className="text-xs text-emerald-700 dark:text-emerald-400">Active</p>
-              <p className="font-semibold text-emerald-800 dark:text-emerald-300">
-                {formatDuration(Math.round(report.activeMs / 60000))}
-              </p>
-            </div>
-            <div className="rounded-lg bg-amber-50 p-2 dark:bg-amber-500/10">
-              <p className="text-xs text-amber-700 dark:text-amber-400">Idle</p>
-              <p className="font-semibold text-amber-800 dark:text-amber-300">
-                {formatDuration(Math.round(report.idleMs / 60000))}
-              </p>
-            </div>
-            <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-700">
-              <p className="text-xs text-slate-500 dark:text-slate-400">Away</p>
-              <p className="font-semibold text-slate-700 dark:text-slate-200">
-                {formatDuration(Math.round(report.awayMs / 60000))}
-              </p>
-            </div>
+          <div className="rounded-lg bg-emerald-50 p-2 text-center dark:bg-emerald-500/10">
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">Active time</p>
+            <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+              {formatDuration(Math.round(report.activeMs / 60000))}
+            </p>
           </div>
 
           {report.byLabel.length > 0 && (

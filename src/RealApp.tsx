@@ -153,7 +153,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
               AI Learning Companion
             </p>
             <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 sm:text-2xl">
-              Welcome back{userEmail ? `, ${userEmail.split('@')[0]}` : ''}
+              {isGuest ? 'Welcome' : `Welcome back${userEmail ? `, ${userEmail.split('@')[0]}` : ''}`}
             </h1>
           </div>
           <div className="flex items-center gap-2">
