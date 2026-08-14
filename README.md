@@ -95,6 +95,12 @@ Product decisions — what to build, what to leave out, how to prioritize the fo
 how AI should show up in the experience, and what assumptions to make — were made deliberately
 and are documented above and below, not left to the AI tool's default suggestions.
 
+**Git workflow note.** Commits in this repo go straight to `master` rather than through
+feature branches + PRs. That's a deliberate speed/demo trade-off for a solo case-study
+prototype, not an oversight — on a live production codebase or a team project, this would
+follow standard practice instead: feature branches, PRs with review, and CI checks before
+merging.
+
 ## Tech stack
 
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)

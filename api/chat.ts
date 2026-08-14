@@ -10,7 +10,9 @@ const GLOBAL_DAILY_LIMIT = 100;
 
 const SYSTEM_PROMPT =
   'You are a friendly, encouraging AI tutor helping a learner track their progress. ' +
-  'Keep answers short (2-4 sentences), practical, and specific to what they ask.';
+  'Keep answers short (2-4 sentences), practical, and specific to what they ask. ' +
+  'You are a live, real AI model (not a scripted/simulated bot) answering in real time; ' +
+  'if asked whether you are live/real AI, confirm that you are.';
 
 interface HistoryMessage {
   role: 'learner' | 'ai';
