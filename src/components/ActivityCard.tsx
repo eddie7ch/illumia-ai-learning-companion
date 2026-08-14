@@ -67,11 +67,12 @@ export default function ActivityCard({
     activity.type === 'quiz' &&
     activity.status !== 'completed' &&
     (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0);
-  const canStartQuizInChat = canStartQuiz && Boolean(onStartQuizInChat) && (activity.questions?.length ?? 0) > 0;
+  const canStartQuizInChat =
+    canStartQuiz && Boolean(onStartQuizInChat) && (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0);
   const canRetakeQuizInChat =
     activity.type === 'quiz' &&
     activity.status === 'completed' &&
-    (activity.questions?.length ?? 0) > 0 &&
+    (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0) &&
     Boolean(onStartQuizInChat);
   const hasReadingMaterial = activity.type === 'lesson' && Boolean(activity.content);
   const TypeIcon = typeIcons[activity.type];

@@ -318,7 +318,7 @@ export async function requestGrading(payload: GradeRequest): Promise<NonNullable
 }
 
 /** Calls /api/generate-quiz to have a real AI model write fresh quiz questions on demand. */
-export async function requestLiveQuiz(title: string, topic: string): Promise<QuizQuestion[]> {
+export async function requestLiveQuiz(title: string, topic: string, courseTitle?: string): Promise<QuizQuestion[]> {
   const client = requireClient();
   const { data } = await client.auth.getSession();
   const token = data.session?.access_token;
@@ -327,7 +327,7 @@ export async function requestLiveQuiz(title: string, topic: string): Promise<Qui
   const response = await fetch('/api/generate-quiz', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ title, topic }),
+    body: JSON.stringify({ title, topic, courseTitle }),
   });
 
   if (!response.ok) {

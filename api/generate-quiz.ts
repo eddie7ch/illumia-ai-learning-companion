@@ -62,21 +62,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { title, topic } = req.body ?? {};
+  const { title, topic, courseTitle } = req.body ?? {};
   if (typeof title !== 'string' || typeof topic !== 'string' || !title.trim() || !topic.trim()) {
     res.status(400).json({ error: 'Missing or invalid fields.' });
     return;
   }
-  if (title.length > 200 || topic.length > 200) {
+  if (title.length > 200 || topic.length > 200 || (typeof courseTitle === 'string' && courseTitle.length > 200)) {
     res.status(400).json({ error: 'One or more fields are too long.' });
     return;
   }
 
+  const courseContext =
+    typeof courseTitle === 'string' && courseTitle.trim()
+      ? `Every question MUST stay specific to "${courseTitle}" — do not ask generic questions about ` +
+        `"${topic}" that could apply to any course; frame each question through the lens of "${courseTitle}". `
+      : '';
+
   const systemPrompt =
     `Write ${QUESTION_COUNT} multiple-choice quiz questions to test a learner's understanding of ` +
-    `"${topic}" for an activity titled "${title}". Each question needs exactly ${CHOICE_COUNT} ` +
-    'plausible choices with only one correct answer, plus a one-sentence explanation of the ' +
-    'correct answer. Respond with ONLY minified JSON matching exactly this shape: ' +
+    `"${topic}" for an activity titled "${title}". ${courseContext}Each question needs exactly ` +
+    `${CHOICE_COUNT} plausible choices with only one correct answer, plus a one-sentence explanation ` +
+    'of the correct answer. This is a retake, so pick a different angle, sub-concept, wording, and ' +
+    'choice ordering than a typical/obvious question set — avoid the single most predictable question ' +
+    `for this topic. Variation seed: ${Math.floor(Math.random() * 1_000_000)} (use it only to pick a ` +
+    'different combination of sub-concepts, not to mention it in the output). Respond with ONLY ' +
+    'minified JSON matching exactly this shape: ' +
     '{"questions": [{"prompt": string, "choices": string[], "correctIndex": number, "explanation": string}]}.';
 
   try {
@@ -87,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         model: 'gpt-4o-mini',
         messages: [{ role: 'system', content: systemPrompt }],
         max_tokens: 700,
-        temperature: 0.7,
+        temperature: 1,
         response_format: { type: 'json_object' },
       }),
     });

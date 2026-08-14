@@ -129,11 +129,14 @@ export function useCourseData(userId: string, userEmail: string | null, isGuest 
     setActivities((prev) => prev.map((item) => (item.id === activityId ? updated : item)));
   }, []);
 
-  const requestQuiz = useCallback((activity: Activity): Promise<QuizQuestion[]> => {
-    return requestLiveQuiz(activity.title, activity.topic);
-  }, []);
-
   const activeCourse = courses.find((course) => course.id === activeCourseId) ?? null;
+
+  const requestQuiz = useCallback(
+    (activity: Activity): Promise<QuizQuestion[]> => {
+      return requestLiveQuiz(activity.title, activity.topic, activeCourse?.title);
+    },
+    [activeCourse],
+  );
 
   return {
     courses,

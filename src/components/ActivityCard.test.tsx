@@ -151,4 +151,20 @@ describe('ActivityCard', () => {
     expect(await screen.findByText('AI rate limit reached.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
+
+  it('shows "Take in AI chat" and "Retake in AI chat" without a static bank when onRequestQuiz is available', () => {
+    const { rerender } = render(
+      <ActivityCard activity={quizActivityWithoutBank} onRequestQuiz={vi.fn()} onStartQuizInChat={vi.fn()} />,
+    );
+    expect(screen.getByRole('button', { name: /take in ai chat/i })).toBeInTheDocument();
+
+    rerender(
+      <ActivityCard
+        activity={{ ...quizActivityWithoutBank, status: 'completed', feedback: { score: 90, strengths: [], suggestions: [] } }}
+        onRequestQuiz={vi.fn()}
+        onStartQuizInChat={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /retake in ai chat/i })).toBeInTheDocument();
+  });
 });

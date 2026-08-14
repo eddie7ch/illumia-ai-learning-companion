@@ -59,7 +59,10 @@ export default function AiTutorChat({
   const questionInputId = useId();
 
   const availableQuizzes = (activities ?? []).filter(
-    (activity) => activity.type === 'quiz' && activity.status !== 'completed' && (activity.questions?.length ?? 0) > 0,
+    (activity) =>
+      activity.type === 'quiz' &&
+      activity.status !== 'completed' &&
+      (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0),
   );
   // Looked up from all activities (not just availableQuizzes) so a completed quiz can still be retaken.
   const activeQuiz = quizSession
