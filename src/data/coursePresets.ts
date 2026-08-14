@@ -46,44 +46,7 @@ export const coursePresets: CoursePreset[] = [
           'that is state.',
       },
       { title: 'Build a Todo Application', type: 'exercise', topic: 'State Management' },
-      {
-        title: 'React Fundamentals Quiz',
-        type: 'quiz',
-        topic: 'Fundamentals',
-        questions: [
-          {
-            id: 'q1',
-            prompt: 'What must a React component function do?',
-            choices: [
-              'Return a string',
-              'Return JSX (or null)',
-              'Call useState at least once',
-              'Be declared with the `class` keyword',
-            ],
-            correctIndex: 1,
-            explanation: 'A component is a function that returns JSX describing what should render (or null to render nothing).',
-          },
-          {
-            id: 'q2',
-            prompt: 'How does a parent component pass data to a child component?',
-            choices: ['Global variables', 'Props', 'Directly editing the child\u2019s state', 'The DOM'],
-            correctIndex: 1,
-            explanation: 'Props flow one-way, from parent to child, similar to function arguments.',
-          },
-          {
-            id: 'q3',
-            prompt: 'What triggers a component to re-render?',
-            choices: [
-              'Refreshing the browser tab',
-              'Calling a state setter (e.g. from useState) with a new value',
-              'Adding a comment to the code',
-              'Importing a new component',
-            ],
-            correctIndex: 1,
-            explanation: 'Calling a state setter schedules React to re-render the component with the updated state.',
-          },
-        ],
-      },
+      { title: 'React Fundamentals Quiz', type: 'quiz', topic: 'Fundamentals' },
       { title: 'Fetching and Displaying API Data', type: 'exercise', topic: 'Async & Effects' },
       {
         title: 'React Performance Optimization',
@@ -98,44 +61,7 @@ export const coursePresets: CoursePreset[] = [
           'optimizing code that isn\u2019t actually slow adds complexity for no benefit.',
       },
       { title: 'Memoization Challenge', type: 'exercise', topic: 'Performance' },
-      {
-        title: 'Testing Fundamentals Quiz',
-        type: 'quiz',
-        topic: 'Testing',
-        questions: [
-          {
-            id: 'q1',
-            prompt: 'Which Testing Library query should you prefer for an interactive button?',
-            choices: ['getByTestId', 'getByRole', 'getByClassName', 'querySelector'],
-            correctIndex: 1,
-            explanation: 'getByRole reflects how assistive tech and users find elements, so prefer it over test IDs or class names.',
-          },
-          {
-            id: 'q2',
-            prompt: 'What does `userEvent.click()` simulate more accurately than `fireEvent.click()`?',
-            choices: [
-              'Nothing, they are identical',
-              'The full sequence of real user interactions (hover, focus, click)',
-              'Server-side rendering',
-              'CSS animations',
-            ],
-            correctIndex: 1,
-            explanation: '`userEvent` fires the full realistic event sequence a browser would dispatch, catching more bugs than a single synthetic event.',
-          },
-          {
-            id: 'q3',
-            prompt: 'In a React component test, why mock the network/service layer instead of letting real requests fire?',
-            choices: [
-              'It makes tests slower',
-              'It keeps tests fast, deterministic, and independent of a live backend',
-              'It is required by TypeScript',
-              'It improves code coverage automatically',
-            ],
-            correctIndex: 1,
-            explanation: 'Mocking the service layer removes network flakiness and lets you control exactly what data a test exercises.',
-          },
-        ],
-      },
+      { title: 'Testing Fundamentals Quiz', type: 'quiz', topic: 'Testing' },
     ],
   },
   {

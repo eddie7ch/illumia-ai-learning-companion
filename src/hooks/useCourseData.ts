@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Activity, ActivityType, AiFeedback } from '../types';
+import type { Activity, ActivityType, AiFeedback, QuizQuestion } from '../types';
 import type { CoursePreset } from '../data/coursePresets';
 import {
   addActivity as addActivityRow,
@@ -10,6 +10,7 @@ import {
   fetchActivities,
   fetchCourses,
   requestGrading,
+  requestLiveQuiz,
   saveGradedActivity,
   seedDemoCourse,
   type Course,
@@ -128,6 +129,10 @@ export function useCourseData(userId: string, userEmail: string | null, isGuest 
     setActivities((prev) => prev.map((item) => (item.id === activityId ? updated : item)));
   }, []);
 
+  const requestQuiz = useCallback((activity: Activity): Promise<QuizQuestion[]> => {
+    return requestLiveQuiz(activity.title, activity.topic);
+  }, []);
+
   const activeCourse = courses.find((course) => course.id === activeCourseId) ?? null;
 
   return {
@@ -143,5 +148,6 @@ export function useCourseData(userId: string, userEmail: string | null, isGuest 
     submitForGrading,
     completeQuiz,
     logTimeSpent,
+    requestQuiz,
   };
 }

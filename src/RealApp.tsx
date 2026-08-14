@@ -88,6 +88,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
     submitForGrading,
     completeQuiz,
     logTimeSpent,
+    requestQuiz,
   } = useCourseData(userId, userEmail, isGuest);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -216,6 +217,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
                     }
                     onCompleteQuiz={completeQuiz}
                     onTimeSpent={logTimeSpent}
+                    onRequestQuiz={requestQuiz}
                   />
                 </>
               )}

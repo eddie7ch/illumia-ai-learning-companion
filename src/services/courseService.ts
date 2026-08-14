@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { Activity, ActivityType } from '../types';
+import type { Activity, ActivityType, QuizQuestion } from '../types';
 import type { ActivityRow, CourseRow } from '../types/database';
 import type { CoursePreset } from '../data/coursePresets';
 
@@ -188,39 +188,6 @@ export async function seedDemoCourse(userId: string): Promise<Course> {
       completed_on: null,
       time_spent_minutes: null,
       feedback: null,
-      questions: [
-        {
-          id: 'q1',
-          prompt: 'Which Testing Library query should you prefer for an interactive button?',
-          choices: ['getByTestId', 'getByRole', 'getByClassName', 'querySelector'],
-          correctIndex: 1,
-          explanation: 'getByRole reflects how assistive tech and users find elements, so prefer it over test IDs or class names.',
-        },
-        {
-          id: 'q2',
-          prompt: 'What does `userEvent.click()` simulate more accurately than `fireEvent.click()`?',
-          choices: [
-            'Nothing, they are identical',
-            'The full sequence of real user interactions (hover, focus, click)',
-            'Server-side rendering',
-            'CSS animations',
-          ],
-          correctIndex: 1,
-          explanation: '`userEvent` fires the full realistic event sequence a browser would dispatch, catching more bugs than a single synthetic event.',
-        },
-        {
-          id: 'q3',
-          prompt: 'In a React component test, why mock the network/service layer instead of letting real requests fire?',
-          choices: [
-            'It makes tests slower',
-            'It keeps tests fast, deterministic, and independent of a live backend',
-            'It is required by TypeScript',
-            'It improves code coverage automatically',
-          ],
-          correctIndex: 1,
-          explanation: 'Mocking the service layer removes network flakiness and lets you control exactly what data a test exercises.',
-        },
-      ],
     },
   ].map((activity, index) => ({ course_id: courseRow.id, user_id: userId, sort_order: index, ...activity }));
 
@@ -348,4 +315,25 @@ export async function requestGrading(payload: GradeRequest): Promise<NonNullable
     throw new Error(body?.error || `Grading failed with status ${response.status}`);
   }
   return response.json();
+}
+
+/** Calls /api/generate-quiz to have a real AI model write fresh quiz questions on demand. */
+export async function requestLiveQuiz(title: string, topic: string): Promise<QuizQuestion[]> {
+  const client = requireClient();
+  const { data } = await client.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('You must be signed in to generate a quiz.');
+
+  const response = await fetch('/api/generate-quiz', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ title, topic }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error || `Quiz generation failed with status ${response.status}`);
+  }
+  const result = await response.json();
+  return result.questions as QuizQuestion[];
 }

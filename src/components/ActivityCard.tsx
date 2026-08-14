@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { BookOpen, Code2, HelpCircle, Sparkles } from 'lucide-react';
-import type { Activity, AiFeedback } from '../types';
+import type { Activity, AiFeedback, QuizQuestion } from '../types';
 import { formatDuration } from '../utils/duration';
 import Drawer from './Drawer';
 import FeedbackPanel from './FeedbackPanel';
@@ -12,6 +12,8 @@ interface ActivityCardProps {
   onSubmitForGrading?: (submission: string, minutes: number) => Promise<void>;
   onCompleteQuiz?: (activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => void;
   onTimeSpent?: (activityId: string, additionalMinutes: number) => void;
+  /** When provided, quizzes are generated live by a real AI model instead of using a fixed question bank. */
+  onRequestQuiz?: (activity: Activity) => Promise<QuizQuestion[]>;
 }
 
 const typeLabels: Record<Activity['type'], string> = {
@@ -38,7 +40,7 @@ const statusLabels: Record<Activity['status'], string> = {
   'not-started': 'Not started',
 };
 
-export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQuiz, onTimeSpent }: ActivityCardProps) {
+export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQuiz, onTimeSpent, onRequestQuiz }: ActivityCardProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isQuizDrawerOpen, setIsQuizDrawerOpen] = useState(false);
   const [isReadDrawerOpen, setIsReadDrawerOpen] = useState(false);
@@ -47,12 +49,33 @@ export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQ
   const [minutes, setMinutes] = useState('');
   const [isGrading, setIsGrading] = useState(false);
   const [gradingError, setGradingError] = useState<string | null>(null);
+  const [liveQuestions, setLiveQuestions] = useState<QuizQuestion[] | null>(null);
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
+  const [quizError, setQuizError] = useState<string | null>(null);
   const readOpenedAtRef = useRef<number | null>(null);
   const hasFeedback = Boolean(activity.feedback);
   const canStartQuiz =
-    activity.type === 'quiz' && activity.status !== 'completed' && (activity.questions?.length ?? 0) > 0;
+    activity.type === 'quiz' &&
+    activity.status !== 'completed' &&
+    (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0);
   const hasReadingMaterial = activity.type === 'lesson' && Boolean(activity.content);
   const TypeIcon = typeIcons[activity.type];
+  const quizQuestions = liveQuestions ?? activity.questions;
+
+  const handleStartQuiz = async () => {
+    setIsQuizDrawerOpen(true);
+    if (!onRequestQuiz) return;
+    setIsLoadingQuiz(true);
+    setQuizError(null);
+    setLiveQuestions(null);
+    try {
+      setLiveQuestions(await onRequestQuiz(activity));
+    } catch (err) {
+      setQuizError(err instanceof Error ? err.message : 'Could not generate quiz questions. Please try again.');
+    } finally {
+      setIsLoadingQuiz(false);
+    }
+  };
 
   const handleOpenReadDrawer = () => {
     readOpenedAtRef.current = Date.now();
@@ -132,7 +155,7 @@ export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQ
         <div className="mt-3">
           <button
             type="button"
-            onClick={() => setIsQuizDrawerOpen(true)}
+            onClick={handleStartQuiz}
             aria-haspopup="dialog"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300"
           >
@@ -141,9 +164,24 @@ export default function ActivityCard({ activity, onSubmitForGrading, onCompleteQ
           </button>
 
           <Drawer isOpen={isQuizDrawerOpen} onClose={() => setIsQuizDrawerOpen(false)} title={activity.title}>
-            {activity.questions && (
+            {isLoadingQuiz && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Asking a real AI model to write fresh quiz questions…</p>
+            )}
+            {quizError && !isLoadingQuiz && (
+              <div className="space-y-2">
+                <p className="text-sm text-red-600 dark:text-red-400">{quizError}</p>
+                <button
+                  type="button"
+                  onClick={handleStartQuiz}
+                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+            {!isLoadingQuiz && !quizError && quizQuestions && (
               <QuizRunner
-                questions={activity.questions}
+                questions={quizQuestions}
                 onSubmit={(result: QuizResult) =>
                   onCompleteQuiz?.(activity.id, result.feedback, result.timeSpentMinutes)
                 }

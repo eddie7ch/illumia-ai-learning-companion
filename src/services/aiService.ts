@@ -41,6 +41,15 @@ export interface TutorReply {
   notice?: string;
 }
 
+/**
+ * OpenAI doesn't reliably start a new line before enumerated list markers (e.g. multiple-choice
+ * "A. ... B. ..." or numbered "1. ... 2. ..."), even when instructed to, so replies can render as
+ * one jumbled paragraph. Force a line break before each marker so lists always render one per line.
+ */
+function normalizeListFormatting(text: string): string {
+  return text.replace(/ (?=(?:\d+\.|[A-D][.)])\s)/g, '\n').replace(/^\n+/, '');
+}
+
 /** Calls the /api/chat serverless function, authenticated with the current Supabase session. */
 async function requestServerChatReply(
   question: string,
@@ -64,7 +73,7 @@ async function requestServerChatReply(
   }
   const body = await response.json();
   if (!body?.text) throw new Error('The AI response was empty.');
-  return body.text as string;
+  return normalizeListFormatting(body.text as string);
 }
 
 /**
@@ -83,7 +92,7 @@ export async function requestTutorReply(
   if (trimmedKey) {
     try {
       const text = await getLiveAiResponse(question, trimmedKey, history, progressContext);
-      return { text };
+      return { text: normalizeListFormatting(text) };
     } catch (error) {
       const message = error instanceof LiveAiError ? error.message : 'Something went wrong.';
       await simulateLatency();

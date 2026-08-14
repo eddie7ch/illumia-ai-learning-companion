@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ActivityCalendar from './ActivityCalendar';
 import type { Activity } from '../types';
 
@@ -40,7 +41,7 @@ describe('ActivityCalendar', () => {
 
     expect(screen.getByText(/1h 30m invested/i)).toBeInTheDocument();
     expect(screen.getByText(/1 active day/i)).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /1 active day/i })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /1 active day/i })).toBeInTheDocument();
   });
 
   it('reports a current streak spanning today and yesterday', () => {
@@ -60,5 +61,19 @@ describe('ActivityCalendar', () => {
     render(<ActivityCalendar activities={[activity('1', today, 45)]} />);
 
     expect(screen.getByText(`${today}: 45m spent on Activity 1`)).toBeInTheDocument();
+  });
+
+  it('shows time spent on a day when its cell is clicked, and hides it when clicked again', async () => {
+    const user = userEvent.setup();
+    const today = dateKey(new Date());
+    render(<ActivityCalendar activities={[activity('1', today, 45)]} />);
+
+    const cell = screen.getByRole('button', { name: new RegExp(`45m spent on Activity 1`, 'i') });
+    await user.click(cell);
+
+    expect(screen.getAllByText(/45m spent on Activity 1/i).length).toBeGreaterThan(1);
+
+    await user.click(cell);
+    expect(screen.getAllByText(/45m spent on Activity 1/i)).toHaveLength(1);
   });
 });

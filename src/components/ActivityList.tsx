@@ -1,4 +1,4 @@
-import type { Activity, AiFeedback } from '../types';
+import type { Activity, AiFeedback, QuizQuestion } from '../types';
 import ActivityCard from './ActivityCard';
 
 interface ActivityListProps {
@@ -6,9 +6,16 @@ interface ActivityListProps {
   onSubmitForGrading?: (activity: Activity, submission: string, minutes: number) => Promise<void>;
   onCompleteQuiz?: (activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => void;
   onTimeSpent?: (activityId: string, additionalMinutes: number) => void;
+  onRequestQuiz?: (activity: Activity) => Promise<QuizQuestion[]>;
 }
 
-export default function ActivityList({ activities, onSubmitForGrading, onCompleteQuiz, onTimeSpent }: ActivityListProps) {
+export default function ActivityList({
+  activities,
+  onSubmitForGrading,
+  onCompleteQuiz,
+  onTimeSpent,
+  onRequestQuiz,
+}: ActivityListProps) {
   return (
     <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
       <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Your activities</h2>
@@ -22,6 +29,7 @@ export default function ActivityList({ activities, onSubmitForGrading, onComplet
             }
             onCompleteQuiz={onCompleteQuiz}
             onTimeSpent={onTimeSpent}
+            onRequestQuiz={onRequestQuiz}
           />
         ))}
       </ul>

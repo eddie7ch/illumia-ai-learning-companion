@@ -114,4 +114,41 @@ describe('ActivityCard', () => {
     expect(timeSpentMinutes).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/quiz complete/i)).toBeInTheDocument();
   });
+
+  const quizActivityWithoutBank: Activity = {
+    id: 'quiz-3',
+    title: 'Live AI Quiz',
+    type: 'quiz',
+    topic: 'Testing',
+    status: 'not-started',
+  };
+
+  it('shows a Start quiz button even without a static question bank when onRequestQuiz is provided', () => {
+    render(<ActivityCard activity={quizActivityWithoutBank} onRequestQuiz={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /start quiz/i })).toBeInTheDocument();
+  });
+
+  it('fetches live quiz questions from a real AI call when starting a quiz', async () => {
+    const user = userEvent.setup();
+    const onRequestQuiz = vi.fn().mockResolvedValue([
+      { id: 'live-1', prompt: 'What is a closure?', choices: ['A loop', 'A function with retained scope'], correctIndex: 1 },
+    ]);
+    render(<ActivityCard activity={quizActivityWithoutBank} onRequestQuiz={onRequestQuiz} />);
+
+    await user.click(screen.getByRole('button', { name: /start quiz/i }));
+
+    expect(onRequestQuiz).toHaveBeenCalledWith(quizActivityWithoutBank);
+    expect(await screen.findByText(/what is a closure/i)).toBeInTheDocument();
+  });
+
+  it('shows a retry option when live quiz generation fails', async () => {
+    const user = userEvent.setup();
+    const onRequestQuiz = vi.fn().mockRejectedValue(new Error('AI rate limit reached.'));
+    render(<ActivityCard activity={quizActivityWithoutBank} onRequestQuiz={onRequestQuiz} />);
+
+    await user.click(screen.getByRole('button', { name: /start quiz/i }));
+
+    expect(await screen.findByText('AI rate limit reached.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
 });

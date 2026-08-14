@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Activity } from '../types';
 import { formatDuration } from '../utils/duration';
 
@@ -15,6 +16,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MONTH_LABELS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function toDateKey(date: Date): string {
   const y = date.getFullYear();
@@ -26,6 +28,15 @@ function toDateKey(date: Date): string {
 function parseDateKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+function formatDisplayDate(key: string): string {
+  return parseDateKey(key).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function levelForMinutes(minutes: number): 0 | 1 | 2 | 3 | 4 {
@@ -45,6 +56,8 @@ const LEVEL_STYLES: Record<0 | 1 | 2 | 3 | 4, string> = {
 };
 
 export default function ActivityCalendar({ activities }: ActivityCalendarProps) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
   const byDate = new Map<string, DayEntry>();
   activities.forEach((activity) => {
     if (!activity.completedOn) return;
@@ -111,7 +124,9 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
   const summary =
     `Activity calendar heatmap for the last ${WEEKS} weeks. ` +
     `${formatDuration(totalMinutes)} invested across ${activeDayCount} active day${activeDayCount === 1 ? '' : 's'}, ` +
-    `longest streak ${longestStreak} day${longestStreak === 1 ? '' : 's'}.`;
+    `longest streak ${longestStreak} day${longestStreak === 1 ? '' : 's'}. Click a day to see details.`;
+
+  const selectedEntry = selectedKey ? byDate.get(selectedKey) : undefined;
 
   return (
     <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
@@ -123,43 +138,79 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
         </p>
       </div>
 
-      <div className="mt-3 overflow-x-auto" role="img" aria-label={summary}>
+      <div className="mt-3 flex gap-1 overflow-x-auto" role="group" aria-label={summary}>
         <div
-          className="grid gap-1"
-          style={{ gridTemplateColumns: `repeat(${weeks.length}, 12px)` }}
+          className="mt-4 grid gap-1"
+          style={{ gridTemplateRows: 'repeat(7, 12px)' }}
           aria-hidden="true"
         >
-          {monthLabels.map((label, index) => (
-            <span key={index} className="text-[10px] text-slate-400 dark:text-slate-500">
-              {label}
+          {WEEKDAY_LABELS.map((label, index) => (
+            <span key={label} className="text-[9px] leading-3 text-slate-400 dark:text-slate-500">
+              {index % 2 === 1 ? label.slice(0, 1) : ''}
             </span>
           ))}
         </div>
-        <div
-          className="mt-1 grid gap-1"
-          style={{
-            gridTemplateColumns: `repeat(${weeks.length}, 12px)`,
-            gridTemplateRows: 'repeat(7, 12px)',
-            gridAutoFlow: 'column',
-          }}
-          aria-hidden="true"
-        >
-          {weeks.map((week) =>
-            week.map((day) => {
-              const key = toDateKey(day);
-              const entry = byDate.get(key);
-              const level = levelForMinutes(entry?.minutes ?? 0);
-              return (
-                <div
-                  key={key}
-                  title={entry ? `${key}: ${formatDuration(entry.minutes)} — ${entry.titles.join(', ')}` : key}
-                  className={`h-3 w-3 rounded-sm ${LEVEL_STYLES[level]}`}
-                />
-              );
-            }),
-          )}
+        <div>
+          <div
+            className="grid gap-1"
+            style={{ gridTemplateColumns: `repeat(${weeks.length}, 12px)` }}
+            aria-hidden="true"
+          >
+            {monthLabels.map((label, index) => (
+              <span key={index} className="text-[10px] text-slate-400 dark:text-slate-500">
+                {label}
+              </span>
+            ))}
+          </div>
+          <div
+            className="mt-1 grid gap-1"
+            style={{
+              gridTemplateColumns: `repeat(${weeks.length}, 12px)`,
+              gridTemplateRows: 'repeat(7, 12px)',
+              gridAutoFlow: 'column',
+            }}
+          >
+            {weeks.map((week) =>
+              week.map((day) => {
+                const key = toDateKey(day);
+                const entry = byDate.get(key);
+                const level = levelForMinutes(entry?.minutes ?? 0);
+                const isSelected = key === selectedKey;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedKey((prev) => (prev === key ? null : key))}
+                    title={entry ? `${key}: ${formatDuration(entry.minutes)} — ${entry.titles.join(', ')}` : key}
+                    aria-label={
+                      entry
+                        ? `${formatDisplayDate(key)}: ${formatDuration(entry.minutes)} spent on ${entry.titles.join(', ')}`
+                        : `${formatDisplayDate(key)}: no activity`
+                    }
+                    aria-pressed={isSelected}
+                    className={`h-3 w-3 rounded-sm ${LEVEL_STYLES[level]} ${
+                      isSelected ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : ''
+                    }`}
+                  />
+                );
+              }),
+            )}
+          </div>
         </div>
       </div>
+
+      {selectedKey && (
+        <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/40 dark:text-slate-300 dark:ring-slate-700">
+          <p className="font-medium text-slate-700 dark:text-slate-200">{formatDisplayDate(selectedKey)}</p>
+          {selectedEntry ? (
+            <p className="mt-1">
+              {formatDuration(selectedEntry.minutes)} spent on {selectedEntry.titles.join(', ')}
+            </p>
+          ) : (
+            <p className="mt-1">No activity on this day.</p>
+          )}
+        </div>
+      )}
 
       <ul className="sr-only">
         {sortedDateKeys.map((key) => {

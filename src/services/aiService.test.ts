@@ -96,6 +96,26 @@ describe('aiService', () => {
     );
   });
 
+  it('inserts line breaks before jumbled list markers in server-backed replies', async () => {
+    mockIsSupabaseConfigured = true;
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token-123' } } });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          text: '1. What is JSX? A. A templating language B. Syntax extension for JS C. A hook D. A library',
+        }),
+      }),
+    );
+
+    const reply = await requestTutorReply('Quiz me', [], '');
+
+    expect(reply.text).toBe(
+      '1. What is JSX?\nA. A templating language\nB. Syntax extension for JS\nC. A hook\nD. A library',
+    );
+  });
+
   it('falls back to the simulated responder when the server-backed chat endpoint fails', async () => {
     mockIsSupabaseConfigured = true;
     mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token-123' } } });
