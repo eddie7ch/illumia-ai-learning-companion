@@ -51,4 +51,18 @@ describe('generateLearningPlan', () => {
     const steps = generateLearningPlan(profile, noInProgress);
     expect(steps[0].title).toBe('React Performance Optimization');
   });
+
+  it('does not list the recommended not-started activity again in "up next"', () => {
+    const noInProgressProfile: LearnerProfile = {
+      ...profile,
+      recommendation: {
+        activityTitle: 'Memoization Challenge',
+        reason: 'This is next up in "Performance".',
+      },
+    };
+    const noInProgress = activities.filter((activity) => activity.status !== 'in-progress');
+    const steps = generateLearningPlan(noInProgressProfile, noInProgress);
+    const occurrences = steps.filter((step) => step.title === 'Memoization Challenge');
+    expect(occurrences).toHaveLength(1);
+  });
 });

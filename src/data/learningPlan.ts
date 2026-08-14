@@ -15,7 +15,11 @@ export function generateLearningPlan(
   const recommendationMatchesInProgress =
     inProgress?.title === profile.recommendation.activityTitle;
 
+  // Tracks activity ids already surfaced above so the "up next" list below never repeats one.
+  const usedActivityIds = new Set<string>();
+
   if (inProgress) {
+    usedActivityIds.add(inProgress.id);
     steps.push({
       id: `plan-${inProgress.id}`,
       title: `Finish "${inProgress.title}"`,
@@ -26,6 +30,10 @@ export function generateLearningPlan(
   }
 
   if (!recommendationMatchesInProgress) {
+    const recommendedActivity = activities.find(
+      (activity) => activity.title === profile.recommendation.activityTitle,
+    );
+    if (recommendedActivity) usedActivityIds.add(recommendedActivity.id);
     steps.push({
       id: 'plan-recommendation',
       title: profile.recommendation.activityTitle,
@@ -34,7 +42,7 @@ export function generateLearningPlan(
   }
 
   const upNext = activities.filter(
-    (activity) => activity.status === 'not-started' && activity.id !== inProgress?.id,
+    (activity) => activity.status === 'not-started' && !usedActivityIds.has(activity.id),
   );
   upNext.slice(0, 2).forEach((activity) => {
     steps.push({
