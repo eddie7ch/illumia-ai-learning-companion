@@ -1,11 +1,15 @@
 import ProgressOverview from './components/ProgressOverview';
 import StrengthsAndImprovements from './components/StrengthsAndImprovements';
 import RecommendationCard from './components/RecommendationCard';
+import LearningPlan from './components/LearningPlan';
 import ActivityList from './components/ActivityList';
 import AiTutorChat from './components/AiTutorChat';
 import { activities, initialChatMessages, learnerProfile } from './data/mockData';
+import { generateLearningPlan } from './data/learningPlan';
 
 function App() {
+  const learningPlanSteps = generateLearningPlan(learnerProfile, activities);
+
   return (
     <div className="min-h-full bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -28,6 +32,7 @@ function App() {
               improvementAreas={learnerProfile.improvementAreas}
             />
             <RecommendationCard recommendation={learnerProfile.recommendation} />
+            <LearningPlan steps={learningPlanSteps} />
             <ActivityList activities={activities} />
           </div>
 

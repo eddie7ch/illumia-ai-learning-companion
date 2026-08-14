@@ -37,3 +37,9 @@ export interface ChatMessage {
   role: 'learner' | 'ai';
   text: string;
 }
+
+export interface LearningPlanStep {
+  id: string;
+  title: string;
+  description: string;
+}

@@ -14,11 +14,15 @@ track. It shows:
 - **Progress overview** — overall completion percentage for the learning track.
 - **Strengths & areas for improvement** — a summary generated from the learner's activity history.
 - **Recommended next step** — a single, clear "what to do next" recommendation with reasoning.
+- **AI-generated learning plan** — a short, ordered list of next steps generated from the
+  learner's in-progress work, recommendation, and improvement areas (see
+  `src/data/learningPlan.ts`).
 - **Activity list** — lessons, coding exercises, and quizzes with completion status. Completed
   items with AI feedback can be expanded to reveal a score, strengths, and suggestions (matching
   the "Evaluate Learner Work" example from the case study).
 - **AI tutor chat** — a simulated conversational assistant the learner can ask questions like
-  *"Why is my React component re-rendering?"*.
+  *"Why is my React component re-rendering?"*, with a brief simulated "thinking" delay and
+  auto-scrolling message list.
 
 All data is realistic mock/placeholder data — there is no backend, database, or authentication.
 
@@ -50,6 +54,19 @@ example answer.
 **Why Tailwind CSS v4.** Chosen for fast, consistent, responsive styling without hand-rolled CSS,
 keeping the component code focused on structure and behavior.
 
+**Why an AI-generated learning plan in addition to a single recommendation.** The case study lists
+"an AI-generated learning plan" as one of several optional AI experiences. A single "next step"
+recommendation answers *what's next*, but a short plan (`src/data/learningPlan.ts`) better answers
+*what does my next stretch of learning look like*, by sequencing the in-progress activity, the
+recommendation, upcoming activities tied to improvement areas, and a reminder to lean on existing
+strengths. It's implemented as a small deterministic function (not a real LLM call) so its
+reasoning is transparent and unit-testable.
+
+**Why a small automated test suite.** The case study doesn't require production-readiness, but a
+focused set of tests (pure-function unit tests for the learning plan generator, plus component
+tests for feedback expansion, progress display, and the chat flow) demonstrates the same care I'd
+apply to real product code, without over-investing in test infrastructure for a 3-6 hour exercise.
+
 ## Built with AI assistance
 
 In the spirit of the case study's evaluation criteria ("use AI tools while applying your own
@@ -69,6 +86,8 @@ and are documented above and below, not left to the AI tool's default suggestion
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - [Vite](https://vite.dev/) for the dev server and build
 - [Tailwind CSS v4](https://tailwindcss.com/) for responsive styling
+- [Vitest](https://vitest.dev/) + [React Testing Library](https://testing-library.com/react) for
+  automated tests
 
 ## Getting started
 
@@ -81,6 +100,12 @@ npm run dev
 
 Then open the URL printed in the terminal (typically http://localhost:5173/).
 
+To run the automated test suite:
+
+```bash
+npm run test
+```
+
 To create a production build:
 
 ```bash
@@ -92,22 +117,31 @@ npm run preview
 
 ```
 src/
-  components/       UI components (progress, strengths, activities, AI tutor chat, etc.)
+  components/       UI components (progress, strengths, activities, learning plan, AI tutor chat)
   data/
     mockData.ts     Mock learner profile and activity/feedback data
     aiTutor.ts       Simulated AI tutor responses (keyword-based, no real LLM call)
+    learningPlan.ts  Generates a personalized learning plan from profile + activity data
+  test/
+    setup.ts         Test environment setup (jest-dom matchers, cleanup, jsdom polyfills)
   types.ts          Shared TypeScript types
   App.tsx           Page layout wiring all sections together
 ```
 
+Component and data files with matching `*.test.tsx` / `*.test.ts` files alongside them contain
+automated tests for that module.
+
 ## AI experience
 
-Two AI-powered capabilities are demonstrated, per the case study requirements:
+Three AI-powered capabilities are demonstrated, exceeding the case study's "at least one"
+requirement:
 
 1. **AI-generated feedback & recommendations** — pre-authored mock feedback (score, strengths,
    suggestions) attached to completed activities, plus a single recommended next activity with a
    reason, shown on the dashboard.
-2. **AI tutor chat** — an interactive chat box where the learner can type a question and get a
+2. **AI-generated learning plan** — a short, ordered plan (`src/data/learningPlan.ts`) built from
+   the learner's in-progress activity, recommendation, upcoming activities, and strengths.
+3. **AI tutor chat** — an interactive chat box where the learner can type a question and get a
    response. Responses are simulated with simple keyword matching (see `src/data/aiTutor.ts`)
    rather than a real LLM call, since a live integration was optional for this exercise.
 
@@ -135,5 +169,3 @@ Since the case study intentionally leaves some details open, the following assum
 Given more time, this could be extended with: a real LLM-backed tutor with retrieval over the
 learner's actual activity history, multiple learning tracks/users, richer trend charts for
 progress over time, and persisting learner state to a backend/database.
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
