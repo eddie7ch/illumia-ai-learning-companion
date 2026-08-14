@@ -6,7 +6,14 @@ interface ProgressTrendProps {
 
 const CHART_WIDTH = 320;
 const CHART_HEIGHT = 96;
+const LABEL_HEIGHT = 18;
 const PADDING = 12;
+
+function formatShortDate(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function ProgressTrend({ activities }: ProgressTrendProps) {
   const scored = activities
@@ -53,8 +60,8 @@ export default function ProgressTrend({ activities }: ProgressTrendProps) {
       <svg
         role="img"
         aria-label={`Line chart of AI feedback scores over time, ${trendLabel} from ${firstScore} to ${lastScore}`}
-        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-        className="mt-3 h-24 w-full max-w-xs"
+        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT + LABEL_HEIGHT}`}
+        className="mt-3 h-28 w-full max-w-xs"
       >
         <path
           d={linePath}
@@ -76,6 +83,17 @@ export default function ProgressTrend({ activities }: ProgressTrendProps) {
               {point.title}: {point.score}/100 ({point.date})
             </title>
           </circle>
+        ))}
+        {points.map((point, index) => (
+          <text
+            key={`${point.title}-label`}
+            x={point.x}
+            y={CHART_HEIGHT + LABEL_HEIGHT - 4}
+            textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
+            className="fill-slate-400 text-[9px] dark:fill-slate-500"
+          >
+            {formatShortDate(point.date)}
+          </text>
         ))}
       </svg>
 

@@ -247,6 +247,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
                     onSend={sendMessage}
                     activities={activities}
                     onCompleteQuiz={completeQuiz}
+                    onRequestQuiz={requestQuiz}
                     autoStartQuizId={pendingQuizActivityId}
                     onAutoStartQuizHandled={() => setPendingQuizActivityId(null)}
                   />
@@ -280,6 +281,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
               onSend={sendMessage}
               activities={activities}
               onCompleteQuiz={completeQuiz}
+              onRequestQuiz={requestQuiz}
               autoStartQuizId={pendingQuizActivityId}
               onAutoStartQuizHandled={() => setPendingQuizActivityId(null)}
             />

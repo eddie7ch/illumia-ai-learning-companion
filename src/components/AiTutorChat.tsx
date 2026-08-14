@@ -1,7 +1,7 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ArrowLeft, KeyRound, ListChecks, Maximize2, Minimize2, Send, Sparkles } from 'lucide-react';
-import type { Activity, AiFeedback, ChatMessage } from '../types';
+import type { Activity, AiFeedback, ChatMessage, QuizQuestion } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import QuizRunner from './QuizRunner';
 import type { QuizResult } from './QuizRunner';
@@ -21,6 +21,8 @@ interface AiTutorChatProps {
   onSend: (question: string) => void;
   activities?: Activity[];
   onCompleteQuiz?: (activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => void;
+  /** When provided, quizzes taken in chat are generated live by a real AI model instead of a fixed question bank. */
+  onRequestQuiz?: (activity: Activity) => Promise<QuizQuestion[]>;
   /** Set (e.g. from an activity card's "Take in AI chat" button) to jump straight into that quiz. */
   autoStartQuizId?: string | null;
   /** Called once the requested auto-start quiz has been opened, so the caller can clear the request. */
@@ -36,14 +38,23 @@ export default function AiTutorChat({
   onSend,
   activities,
   onCompleteQuiz,
+  onRequestQuiz,
   autoStartQuizId,
   onAutoStartQuizHandled,
 }: AiTutorChatProps) {
   const [draft, setDraft] = useState('');
   const [showKeyPanel, setShowKeyPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
+  // `attempt` increments on every (re)start so retaking the same quiz always remounts QuizRunner
+  // with fresh state, instead of silently no-op'ing because the activityId hasn't changed.
+  const [quizSession, setQuizSession] = useState<{ activityId: string; attempt: number } | null>(null);
+  const [liveQuizQuestions, setLiveQuizQuestions] = useState<QuizQuestion[] | null>(null);
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
+  const [quizError, setQuizError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const quizAttemptRef = useRef(0);
+  const activitiesRef = useRef(activities);
+  activitiesRef.current = activities;
   const apiKeyInputId = useId();
   const questionInputId = useId();
 
@@ -51,9 +62,17 @@ export default function AiTutorChat({
     (activity) => activity.type === 'quiz' && activity.status !== 'completed' && (activity.questions?.length ?? 0) > 0,
   );
   // Looked up from all activities (not just availableQuizzes) so a completed quiz can still be retaken.
-  const activeQuiz = activeQuizId
-    ? (activities ?? []).find((activity) => activity.id === activeQuizId && (activity.questions?.length ?? 0) > 0)
+  const activeQuiz = quizSession
+    ? (activities ?? []).find(
+        (activity) =>
+          activity.id === quizSession.activityId && (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0),
+      )
     : undefined;
+
+  const startQuiz = useCallback((activityId: string) => {
+    quizAttemptRef.current += 1;
+    setQuizSession({ activityId, attempt: quizAttemptRef.current });
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: 'nearest' });
@@ -61,9 +80,25 @@ export default function AiTutorChat({
 
   useEffect(() => {
     if (!autoStartQuizId) return;
-    setActiveQuizId(autoStartQuizId);
+    startQuiz(autoStartQuizId);
     onAutoStartQuizHandled?.();
-  }, [autoStartQuizId]);
+  }, [autoStartQuizId, startQuiz]);
+
+  useEffect(() => {
+    if (!quizSession) return;
+    setLiveQuizQuestions(null);
+    setQuizError(null);
+    if (!onRequestQuiz) return;
+    const activity = (activitiesRef.current ?? []).find((item) => item.id === quizSession.activityId);
+    if (!activity) return;
+    setIsLoadingQuiz(true);
+    onRequestQuiz(activity)
+      .then((questions) => setLiveQuizQuestions(questions))
+      .catch((err) =>
+        setQuizError(err instanceof Error ? err.message : 'Could not generate quiz questions. Please try again.'),
+      )
+      .finally(() => setIsLoadingQuiz(false));
+  }, [quizSession, onRequestQuiz]);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -141,17 +176,35 @@ export default function AiTutorChat({
         <div className="mt-4 flex-1 overflow-y-auto pr-1">
           <button
             type="button"
-            onClick={() => setActiveQuizId(null)}
+            onClick={() => setQuizSession(null)}
             className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             Back to chat
           </button>
           <p className="mb-4 text-sm font-semibold text-slate-900 dark:text-slate-100">{activeQuiz.title}</p>
-          <QuizRunner
-            questions={activeQuiz.questions ?? []}
-            onSubmit={(result) => handleQuizSubmit(activeQuiz.id, result)}
-          />
+          {isLoadingQuiz && (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Asking a real AI model to write fresh quiz questions…</p>
+          )}
+          {quizError && !isLoadingQuiz && (
+            <div className="space-y-2">
+              <p className="text-sm text-red-600 dark:text-red-400">{quizError}</p>
+              <button
+                type="button"
+                onClick={() => startQuiz(activeQuiz.id)}
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {!isLoadingQuiz && !quizError && (
+            <QuizRunner
+              key={`${quizSession?.activityId}-${quizSession?.attempt}`}
+              questions={liveQuizQuestions ?? activeQuiz.questions ?? []}
+              onSubmit={(result) => handleQuizSubmit(activeQuiz.id, result)}
+            />
+          )}
         </div>
       ) : (
         <>
@@ -205,7 +258,7 @@ export default function AiTutorChat({
                 <button
                   key={quiz.id}
                   type="button"
-                  onClick={() => setActiveQuizId(quiz.id)}
+                  onClick={() => startQuiz(quiz.id)}
                   className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition-colors hover:border-indigo-300 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-950"
                 >
                   {quiz.title}

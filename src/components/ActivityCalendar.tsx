@@ -55,6 +55,17 @@ const LEVEL_STYLES: Record<0 | 1 | 2 | 3 | 4, string> = {
   4: 'bg-emerald-700 dark:bg-emerald-400',
 };
 
+const TEXT_STYLES: Record<0 | 1 | 2 | 3 | 4, string> = {
+  0: 'text-slate-500 dark:text-slate-400',
+  1: 'text-emerald-800 dark:text-emerald-200',
+  2: 'text-emerald-900 dark:text-emerald-50',
+  3: 'text-white dark:text-white',
+  4: 'text-white dark:text-slate-900',
+};
+
+const CELL_SIZE = 22;
+
+
 export default function ActivityCalendar({ activities }: ActivityCalendarProps) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -143,19 +154,22 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
       <div className="mt-3 flex gap-1 overflow-x-auto" role="group" aria-label={summary}>
         <div
           className="mt-4 grid gap-1"
-          style={{ gridTemplateRows: 'repeat(7, 12px)' }}
+          style={{ gridTemplateRows: `repeat(7, ${CELL_SIZE}px)` }}
           aria-hidden="true"
         >
-          {WEEKDAY_LABELS.map((label, index) => (
-            <span key={label} className="text-[9px] leading-3 text-slate-400 dark:text-slate-500">
-              {index % 2 === 1 ? label.slice(0, 1) : ''}
+          {WEEKDAY_LABELS.map((label) => (
+            <span
+              key={label}
+              className="flex items-center text-[9px] leading-none text-slate-400 dark:text-slate-500"
+            >
+              {label.slice(0, 1)}
             </span>
           ))}
         </div>
         <div>
           <div
             className="grid gap-1"
-            style={{ gridTemplateColumns: `repeat(${weeks.length}, 12px)` }}
+            style={{ gridTemplateColumns: `repeat(${weeks.length}, ${CELL_SIZE}px)` }}
             aria-hidden="true"
           >
             {monthLabels.map((label, index) => (
@@ -167,8 +181,8 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
           <div
             className="mt-1 grid gap-1"
             style={{
-              gridTemplateColumns: `repeat(${weeks.length}, 12px)`,
-              gridTemplateRows: 'repeat(7, 12px)',
+              gridTemplateColumns: `repeat(${weeks.length}, ${CELL_SIZE}px)`,
+              gridTemplateRows: `repeat(7, ${CELL_SIZE}px)`,
               gridAutoFlow: 'column',
             }}
           >
@@ -190,10 +204,13 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
                         : `${formatDisplayDate(key)}: no activity`
                     }
                     aria-pressed={isSelected}
-                    className={`h-3 w-3 rounded-sm ${LEVEL_STYLES[level]} ${
+                    className={`flex items-center justify-center rounded-sm text-[9px] font-medium leading-none ${LEVEL_STYLES[level]} ${TEXT_STYLES[level]} ${
                       isSelected ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : ''
                     }`}
-                  />
+                    style={{ width: CELL_SIZE, height: CELL_SIZE }}
+                  >
+                    {day.getDate()}
+                  </button>
                 );
               }),
             )}

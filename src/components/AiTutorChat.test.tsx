@@ -2,13 +2,29 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AiTutorChat from './AiTutorChat';
-import type { ChatMessage } from '../types';
+import type { Activity, ChatMessage, QuizQuestion } from '../types';
 
 vi.mock('../services/supabaseClient', () => ({ isSupabaseConfigured: false, supabase: null }));
 
 const initialMessages: ChatMessage[] = [
   { id: 'welcome', role: 'ai', text: 'Hi! Ask me anything.' },
 ];
+
+const quizQuestions: QuizQuestion[] = [
+  { id: 'q1', prompt: 'What is JSX?', choices: ['A syntax extension', 'A database'], correctIndex: 0 },
+];
+
+function quizActivity(overrides: Partial<Activity> = {}): Activity {
+  return {
+    id: 'quiz-1',
+    title: 'Testing Fundamentals Quiz',
+    type: 'quiz',
+    topic: 'Testing',
+    status: 'not-started',
+    questions: quizQuestions,
+    ...overrides,
+  };
+}
 
 function renderChat(overrides: Partial<Parameters<typeof AiTutorChat>[0]> = {}) {
   const onSend = vi.fn();
@@ -22,8 +38,8 @@ function renderChat(overrides: Partial<Parameters<typeof AiTutorChat>[0]> = {}) 
     onSend,
     ...overrides,
   };
-  render(<AiTutorChat {...props} />);
-  return { onSend, onApiKeyChange };
+  const view = render(<AiTutorChat {...props} />);
+  return { onSend, onApiKeyChange, ...view };
 }
 
 describe('AiTutorChat', () => {
@@ -107,5 +123,73 @@ describe('AiTutorChat', () => {
 
     expect(screen.getByLabelText('Ask a question')).toHaveValue('Why is my score low on this activity?');
     expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it('resets to a fresh quiz when retaking the same quiz immediately after finishing it', async () => {
+    const user = userEvent.setup();
+    const activity = quizActivity();
+    const { rerender } = renderChat({ activities: [activity], autoStartQuizId: null });
+
+    rerender(
+      <AiTutorChat
+        messages={initialMessages}
+        isThinking={false}
+        liveAiNotice={null}
+        apiKey=""
+        onApiKeyChange={() => {}}
+        onSend={() => {}}
+        activities={[activity]}
+        autoStartQuizId="quiz-1"
+        onAutoStartQuizHandled={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'A syntax extension' }));
+    await user.click(screen.getByRole('button', { name: 'Submit quiz' }));
+    expect(screen.getByText('Quiz complete!')).toBeInTheDocument();
+
+    // Simulate the parent clearing then re-setting autoStartQuizId, as happens on a real "Retake" click.
+    rerender(
+      <AiTutorChat
+        messages={initialMessages}
+        isThinking={false}
+        liveAiNotice={null}
+        apiKey=""
+        onApiKeyChange={() => {}}
+        onSend={() => {}}
+        activities={[{ ...activity, status: 'completed' }]}
+        autoStartQuizId={null}
+        onAutoStartQuizHandled={() => {}}
+      />,
+    );
+    rerender(
+      <AiTutorChat
+        messages={initialMessages}
+        isThinking={false}
+        liveAiNotice={null}
+        apiKey=""
+        onApiKeyChange={() => {}}
+        onSend={() => {}}
+        activities={[{ ...activity, status: 'completed' }]}
+        autoStartQuizId="quiz-1"
+        onAutoStartQuizHandled={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText('Quiz complete!')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit quiz' })).toBeInTheDocument();
+  });
+
+  it('requests fresh live quiz questions from onRequestQuiz when starting a quiz', async () => {
+    const activity = quizActivity();
+    const liveQuestions: QuizQuestion[] = [
+      { id: 'live-1', prompt: 'Live question?', choices: ['Yes', 'No'], correctIndex: 0 },
+    ];
+    const onRequestQuiz = vi.fn().mockResolvedValue(liveQuestions);
+
+    renderChat({ activities: [activity], onRequestQuiz, autoStartQuizId: 'quiz-1', onAutoStartQuizHandled: () => {} });
+
+    expect(await screen.findByText(/live question\?/i)).toBeInTheDocument();
+    expect(onRequestQuiz).toHaveBeenCalledWith(activity);
   });
 });
