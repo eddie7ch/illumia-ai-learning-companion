@@ -157,6 +157,14 @@ Real mode activates automatically once Supabase is configured; otherwise the app
 demo experience, so the existing [live demo](https://illumia-one.vercel.app) keeps working
 unchanged.
 
+**Testing the server-backed AI (grading/chat) without setting up your own OpenAI key:** either use
+the [live demo](https://illumia-one.vercel.app) directly (already configured with the maintainer's
+key, subject to the shared cost caps below), or use the "bring your own key" option in the chat
+panel (see [Live AI tutor](#live-ai-tutor-optional) above) with your own OpenAI key — that one
+works locally under plain `npm run dev` too, no Supabase or `vercel dev` required. Running the
+server-backed grading/chat/quiz-generation functions yourself (locally or on your own deployment)
+always requires your own OpenAI key and Supabase project, per the setup steps below.
+
 ### Setup
 
 1. Create a free project at [supabase.com](https://supabase.com).
