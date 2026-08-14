@@ -4,41 +4,86 @@ import RecommendationCard from './components/RecommendationCard';
 import LearningPlan from './components/LearningPlan';
 import ActivityList from './components/ActivityList';
 import AiTutorChat from './components/AiTutorChat';
-import { activities, initialChatMessages, learnerProfile } from './data/mockData';
-import { generateLearningPlan } from './data/learningPlan';
+import ProgressTrend from './components/ProgressTrend';
+import ThemeToggle from './components/ThemeToggle';
+import MasteryBadge from './components/MasteryBadge';
+import { DashboardSkeleton, ChatSkeleton } from './components/Skeleton';
+import { useTheme } from './hooks/useTheme';
+import { useLearnerCompanion } from './hooks/useLearnerCompanion';
 
 function App() {
-  const learningPlanSteps = generateLearningPlan(learnerProfile, activities);
+  const {
+    isLoading,
+    profile,
+    activities,
+    learningPlan,
+    messages,
+    isThinking,
+    liveAiNotice,
+    apiKey,
+    setApiKey,
+    sendMessage,
+  } = useLearnerCompanion();
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="min-h-full bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
-          <p className="text-xs font-medium uppercase tracking-wide text-indigo-600">
-            AI Learning Companion
-          </p>
-          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
-            Welcome back, {learnerProfile.name.split(' ')[0]}
-          </h1>
+    <div className="min-h-full bg-slate-50 dark:bg-slate-900">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-indigo-700 focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
+      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-800">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+              AI Learning Companion
+            </p>
+            <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold text-slate-900 dark:text-slate-100 sm:text-2xl">
+              Welcome back, {profile?.name.split(' ')[0] ?? 'there'}
+              {profile && <MasteryBadge track={profile.track} progress={profile.overallProgress} />}
+            </h1>
+          </div>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main id="main-content" className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <ProgressOverview profile={learnerProfile} />
-            <StrengthsAndImprovements
-              strengths={learnerProfile.strengths}
-              improvementAreas={learnerProfile.improvementAreas}
-            />
-            <RecommendationCard recommendation={learnerProfile.recommendation} />
-            <LearningPlan steps={learningPlanSteps} />
-            <ActivityList activities={activities} />
+            {isLoading || !profile ? (
+              <DashboardSkeleton />
+            ) : (
+              <>
+                <ProgressOverview profile={profile} />
+                <ProgressTrend activities={activities} />
+                <StrengthsAndImprovements
+                  strengths={profile.strengths}
+                  improvementAreas={profile.improvementAreas}
+                />
+                <RecommendationCard recommendation={profile.recommendation} />
+                <LearningPlan steps={learningPlan} />
+                <ActivityList activities={activities} />
+              </>
+            )}
           </div>
 
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-6">
-              <AiTutorChat initialMessages={initialChatMessages} />
+              {isLoading ? (
+                <ChatSkeleton />
+              ) : (
+                <AiTutorChat
+                  messages={messages}
+                  isThinking={isThinking}
+                  liveAiNotice={liveAiNotice}
+                  apiKey={apiKey}
+                  onApiKeyChange={setApiKey}
+                  onSend={sendMessage}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -48,3 +93,5 @@ function App() {
 }
 
 export default App;
+
+

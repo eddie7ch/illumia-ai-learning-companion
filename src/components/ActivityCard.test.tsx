@@ -38,16 +38,29 @@ describe('ActivityCard', () => {
     expect(screen.queryByRole('button', { name: /view ai feedback/i })).not.toBeInTheDocument();
   });
 
-  it('reveals AI feedback when the toggle is clicked', async () => {
+  it('opens a feedback drawer when the toggle is clicked', async () => {
     const user = userEvent.setup();
     render(<ActivityCard activity={activityWithFeedback} />);
 
-    expect(screen.queryByText('85/100')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /view ai feedback/i }));
 
+    const drawer = screen.getByRole('dialog', { name: activityWithFeedback.title });
+    expect(drawer).toBeInTheDocument();
     expect(screen.getByText('85/100')).toBeInTheDocument();
     expect(screen.getByText(/Good component structure/)).toBeInTheDocument();
     expect(screen.getByText(/Add unit tests/)).toBeInTheDocument();
+  });
+
+  it('closes the drawer when the close button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ActivityCard activity={activityWithFeedback} />);
+
+    await user.click(screen.getByRole('button', { name: /view ai feedback/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /close/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
