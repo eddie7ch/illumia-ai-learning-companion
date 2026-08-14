@@ -57,3 +57,19 @@ drop policy if exists "activities: owner all" on activities;
 create policy "activities: owner all" on activities for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Logs one row per successful AI-grading call, used to rate-limit /api/grade per user.
+create table if not exists grading_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists grading_events_user_id_created_at_idx on grading_events (user_id, created_at);
+
+alter table grading_events enable row level security;
+
+drop policy if exists "grading_events: owner all" on grading_events;
+create policy "grading_events: owner all" on grading_events for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

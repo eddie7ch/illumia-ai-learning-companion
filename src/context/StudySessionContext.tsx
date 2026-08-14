@@ -1,43 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { SessionActivityKind, SessionReport, SessionSegment } from '../types';
+import { StudySessionContext, type StudySessionApi, type SessionPhase } from './studySessionCore';
 
 const IDLE_THRESHOLD_MS = 60_000;
 const TICK_MS = 1000;
 const DEFAULT_LABEL = 'Dashboard';
-
-type SessionPhase = 'idle' | 'active' | 'ended';
-
-interface StudySessionApi {
-  phase: SessionPhase;
-  elapsedMs: number;
-  currentLabel: string;
-  currentKind: SessionActivityKind;
-  report: SessionReport | null;
-  startSession: () => void;
-  endSession: () => void;
-  setFocusLabel: (label: string | null) => void;
-}
-
-const noop = () => {};
-
-/** No-op default so components (e.g. Drawer) can call these hooks even without a provider mounted, such as in isolated component tests. */
-const defaultApi: StudySessionApi = {
-  phase: 'idle',
-  elapsedMs: 0,
-  currentLabel: DEFAULT_LABEL,
-  currentKind: 'active',
-  report: null,
-  startSession: noop,
-  endSession: noop,
-  setFocusLabel: noop,
-};
-
-const StudySessionContext = createContext<StudySessionApi>(defaultApi);
-
-export function useStudySession() {
-  return useContext(StudySessionContext);
-}
 
 export function StudySessionProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<SessionPhase>('idle');

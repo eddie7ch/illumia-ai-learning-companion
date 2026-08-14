@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 const MAX_SUBMISSION_LENGTH = 8000;
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const VALID_TYPES = new Set(['lesson', 'exercise', 'quiz']);
+const HOURLY_LIMIT = 15;
+const DAILY_LIMIT = 50;
 
 /**
  * AI-grades a learner's submission. Requires a valid Supabase session (checked server-side)
@@ -30,10 +32,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user) {
     res.status(401).json({ error: 'Invalid or expired session.' });
+    return;
+  }
+  const userId = userData.user.id;
+
+  const now = Date.now();
+  const [{ count: hourlyCount }, { count: dailyCount }] = await Promise.all([
+    supabase
+      .from('grading_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', new Date(now - 60 * 60 * 1000).toISOString()),
+    supabase
+      .from('grading_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', new Date(now - 24 * 60 * 60 * 1000).toISOString()),
+  ]);
+  if ((hourlyCount ?? 0) >= HOURLY_LIMIT || (dailyCount ?? 0) >= DAILY_LIMIT) {
+    res.status(429).json({ error: 'AI grading rate limit reached. Please try again later.' });
     return;
   }
 
@@ -95,6 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(502).json({ error: 'The AI grading service returned an unexpected response.' });
       return;
     }
+
+    await supabase.from('grading_events').insert({ user_id: userId });
 
     res.status(200).json({
       score: Math.max(0, Math.min(100, Math.round(parsed.score))),

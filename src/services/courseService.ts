@@ -84,6 +84,115 @@ export async function createCourseFromPreset(userId: string, preset: CoursePrese
   return rowToCourse(courseRow);
 }
 
+function daysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Seeds a populated "React Development" course so a fresh guest sees a working demo, not an empty dashboard. */
+export async function seedDemoCourse(userId: string): Promise<Course> {
+  const client = requireClient();
+  const { data: courseRow, error: courseError } = await client
+    .from('courses')
+    .insert({ user_id: userId, title: 'React Development', is_custom: false })
+    .select()
+    .single();
+  if (courseError) throw courseError;
+
+  const activityRows = [
+    {
+      title: 'Introduction to React Components',
+      type: 'lesson' as const,
+      topic: 'Fundamentals',
+      status: 'completed' as const,
+      completed_on: daysAgo(25),
+      time_spent_minutes: 25,
+      feedback: null,
+    },
+    {
+      title: 'State and Props Deep Dive',
+      type: 'lesson' as const,
+      topic: 'Fundamentals',
+      status: 'completed' as const,
+      completed_on: daysAgo(23),
+      time_spent_minutes: 35,
+      feedback: null,
+    },
+    {
+      title: 'Build a Todo Application',
+      type: 'exercise' as const,
+      topic: 'State Management',
+      status: 'completed' as const,
+      completed_on: daysAgo(17),
+      time_spent_minutes: 60,
+      feedback: {
+        score: 85,
+        strengths: ['Good component structure', 'Clear state management'],
+        suggestions: ['Add unit tests', 'Optimize unnecessary renders'],
+      },
+    },
+    {
+      title: 'React Fundamentals Quiz',
+      type: 'quiz' as const,
+      topic: 'Fundamentals',
+      status: 'completed' as const,
+      completed_on: daysAgo(16),
+      time_spent_minutes: 20,
+      feedback: {
+        score: 92,
+        strengths: ['Strong grasp of component lifecycle', 'Correctly identified prop drilling issues'],
+        suggestions: ['Review Context API use cases'],
+      },
+    },
+    {
+      title: 'Fetching and Displaying API Data',
+      type: 'exercise' as const,
+      topic: 'Async & Effects',
+      status: 'completed' as const,
+      completed_on: daysAgo(9),
+      time_spent_minutes: 75,
+      feedback: {
+        score: 74,
+        strengths: ['Correct use of useEffect for data fetching', 'Clean loading and empty states'],
+        suggestions: ['Handle fetch errors and edge cases', 'Avoid duplicate requests on re-render'],
+      },
+    },
+    {
+      title: 'React Performance Optimization',
+      type: 'lesson' as const,
+      topic: 'Performance',
+      status: 'in-progress' as const,
+      completed_on: null,
+      time_spent_minutes: 15,
+      feedback: null,
+    },
+    {
+      title: 'Memoization Challenge',
+      type: 'exercise' as const,
+      topic: 'Performance',
+      status: 'not-started' as const,
+      completed_on: null,
+      time_spent_minutes: null,
+      feedback: null,
+    },
+    {
+      title: 'Testing Fundamentals Quiz',
+      type: 'quiz' as const,
+      topic: 'Testing',
+      status: 'not-started' as const,
+      completed_on: null,
+      time_spent_minutes: null,
+      feedback: null,
+    },
+  ].map((activity, index) => ({ course_id: courseRow.id, user_id: userId, sort_order: index, ...activity }));
+
+  const { error: activitiesError } = await client.from('activities').insert(activityRows);
+  if (activitiesError) throw activitiesError;
+
+  return rowToCourse(courseRow);
+}
+
 export async function createCustomCourse(userId: string, title: string, topics: string[]): Promise<Course> {
   const client = requireClient();
   const { data: courseRow, error: courseError } = await client

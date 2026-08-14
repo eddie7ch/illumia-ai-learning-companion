@@ -10,6 +10,7 @@ import {
   fetchCourses,
   requestGrading,
   saveGradedActivity,
+  seedDemoCourse,
   type Course,
 } from '../services/courseService';
 
@@ -17,7 +18,7 @@ function lastCourseKey(userId: string) {
   return `illumia:lastCourseId:${userId}`;
 }
 
-export function useCourseData(userId: string, userEmail: string | null) {
+export function useCourseData(userId: string, userEmail: string | null, isGuest = false) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -37,7 +38,11 @@ export function useCourseData(userId: string, userEmail: string | null) {
       setError(null);
       try {
         await ensureProfile(userId, userEmail?.split('@')[0] ?? 'Learner');
-        const loadedCourses = await fetchCourses(userId);
+        let loadedCourses = await fetchCourses(userId);
+        if (loadedCourses.length === 0 && isGuest) {
+          await seedDemoCourse(userId);
+          loadedCourses = await fetchCourses(userId);
+        }
         if (cancelled) return;
         setCourses(loadedCourses);
 
@@ -56,7 +61,7 @@ export function useCourseData(userId: string, userEmail: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [userId, userEmail, loadActivities]);
+  }, [userId, userEmail, isGuest, loadActivities]);
 
   const selectCourse = useCallback(
     async (courseId: string) => {

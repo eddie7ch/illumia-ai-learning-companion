@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { useStudySession } from '../context/StudySessionContext';
+import { useStudySession } from '../context/useStudySession';
 
 interface DrawerProps {
   isOpen: boolean;

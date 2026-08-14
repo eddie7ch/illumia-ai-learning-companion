@@ -159,6 +159,27 @@ unchanged.
 5. Run `npm run dev` (or deploy) — once `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are present,
    the app boots into real mode and prompts you to sign up.
 
+### Cost controls & abuse prevention
+
+Since AI grading calls OpenAI using a shared server-side key, two layers of protection keep costs
+bounded even if the app is left publicly reachable:
+
+- **Per-user rate limiting** — `api/grade.ts` caps each signed-in user at **15 grading calls/hour**
+  and **50/day**, enforced server-side via a `grading_events` log table (see `supabase/schema.sql`)
+  with its own owner-scoped RLS policy. Requests over the limit get a `429` before any OpenAI call
+  is made, so a single account can't drive up spend.
+- **OpenAI account-wide spend limit** — a hard monthly budget (with a hard-enforcement toggle, not
+  just an alert) is set directly in the OpenAI dashboard at
+  [platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits).
+  Once total spend across *all* keys on the account hits the limit, further API requests fail with
+  `429` regardless of what the app's own rate limiting does. This is the backstop against bugs or
+  limits being bypassed. Recommended for anyone self-hosting this: set a small limit (e.g. $10/month)
+  and enable "Enforce a hard limit".
+
+Both are independent of the client-side "bring your own key" tutor chat (`src/data/liveAi.ts`) —
+that feature uses a key the learner supplies themselves in their own browser session, so it can't
+run up cost on the app owner's account.
+
 ## Getting started
 
 Requires [Node.js](https://nodejs.org/) 18+ and npm.

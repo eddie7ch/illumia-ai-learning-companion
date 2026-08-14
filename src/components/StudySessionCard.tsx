@@ -1,5 +1,5 @@
 import { Play, Square } from 'lucide-react';
-import { useStudySession } from '../context/StudySessionContext';
+import { useStudySession } from '../context/useStudySession';
 import { formatDuration } from '../utils/duration';
 
 function formatElapsed(ms: number): string {

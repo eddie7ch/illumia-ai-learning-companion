@@ -9,6 +9,7 @@ import { deriveRecommendation, deriveStrengthsAndImprovements, calculateOverallP
 import { generateLearningPlan } from './data/learningPlan';
 import type { ChatMessage } from './types';
 import AuthPanel from './components/AuthPanel';
+import ResetPasswordPanel from './components/ResetPasswordPanel';
 import CourseSwitcher from './components/CourseSwitcher';
 import ProgressOverview from './components/ProgressOverview';
 import ProgressTrend from './components/ProgressTrend';
@@ -34,12 +35,22 @@ export default function RealApp() {
         <div className="min-h-full bg-slate-50 px-4 py-6 dark:bg-slate-900 sm:px-6">
           <DashboardSkeleton />
         </div>
+      ) : auth.isPasswordRecovery ? (
+        <ResetPasswordPanel error={auth.error} isSubmitting={auth.isSubmitting} onSubmit={auth.updatePassword} />
       ) : !auth.user ? (
-        <AuthPanel error={auth.error} isSubmitting={auth.isSubmitting} onSignIn={auth.signIn} onSignUp={auth.signUp} />
+        <AuthPanel
+          error={auth.error}
+          isSubmitting={auth.isSubmitting}
+          onSignIn={auth.signIn}
+          onSignUp={auth.signUp}
+          onGuest={auth.signInAsGuest}
+          onForgotPassword={auth.sendPasswordReset}
+        />
       ) : (
         <SignedInDashboard
           userId={auth.user.id}
           userEmail={auth.user.email ?? null}
+          isGuest={auth.user.is_anonymous ?? false}
           onSignOut={auth.signOut}
           theme={theme}
           onToggleTheme={toggleTheme}
@@ -52,12 +63,13 @@ export default function RealApp() {
 interface SignedInDashboardProps {
   userId: string;
   userEmail: string | null;
+  isGuest: boolean;
   onSignOut: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
 
-function SignedInDashboard({ userId, userEmail, onSignOut, theme, onToggleTheme }: SignedInDashboardProps) {
+function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onToggleTheme }: SignedInDashboardProps) {
   const {
     courses,
     activeCourse,
@@ -69,7 +81,7 @@ function SignedInDashboard({ userId, userEmail, onSignOut, theme, onToggleTheme 
     addCustomCourse,
     submitForGrading,
     completeQuiz,
-  } = useCourseData(userId, userEmail);
+  } = useCourseData(userId, userEmail, isGuest);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
