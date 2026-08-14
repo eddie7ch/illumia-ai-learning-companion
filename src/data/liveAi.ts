@@ -22,6 +22,7 @@ export async function getLiveAiResponse(
   question: string,
   apiKey: string,
   history: ChatMessage[],
+  progressContext?: string,
 ): Promise<string> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -37,6 +38,9 @@ export async function getLiveAiResponse(
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
+          ...(progressContext
+            ? [{ role: 'system', content: `Learner's real progress data:\n${progressContext}` }]
+            : []),
           ...history.map((message) => ({
             role: message.role === 'ai' ? 'assistant' : 'user',
             content: message.text,

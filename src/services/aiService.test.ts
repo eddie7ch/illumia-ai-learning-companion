@@ -79,7 +79,7 @@ describe('aiService', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const reply = await requestTutorReply('Why is my component re-rendering?', [], '');
+    const reply = await requestTutorReply('Why is my component re-rendering?', [], '', 'Overall progress: 50%');
 
     expect(reply).toEqual({ text: 'Server-backed reply.' });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -87,6 +87,11 @@ describe('aiService', () => {
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+        body: JSON.stringify({
+          question: 'Why is my component re-rendering?',
+          history: [],
+          context: 'Overall progress: 50%',
+        }),
       }),
     );
   });

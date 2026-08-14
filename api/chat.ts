@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const MAX_QUESTION_LENGTH = 2000;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_HISTORY_TEXT_LENGTH = 2000;
+const MAX_CONTEXT_LENGTH = 2000;
 // Shared across ALL users (not per-user) — this is a demo-wide cost cap, not abuse prevention
 // for a single account (see grading_events/HOURLY_LIMIT/DAILY_LIMIT in grade.ts for that).
 const GLOBAL_DAILY_LIMIT = 100;
@@ -75,13 +76,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { question, history } = req.body ?? {};
+  const { question, history, context } = req.body ?? {};
   if (typeof question !== 'string' || !question.trim() || question.length > MAX_QUESTION_LENGTH) {
     res.status(400).json({ error: 'Missing or invalid question.' });
     return;
   }
   if (history !== undefined && !isValidHistory(history)) {
     res.status(400).json({ error: 'Invalid history.' });
+    return;
+  }
+  if (context !== undefined && (typeof context !== 'string' || context.length > MAX_CONTEXT_LENGTH)) {
+    res.status(400).json({ error: 'Invalid context.' });
     return;
   }
   const trimmedHistory: HistoryMessage[] = (history ?? []).slice(-MAX_HISTORY_MESSAGES);
@@ -94,6 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
+          ...(context ? [{ role: 'system', content: `Learner's real progress data:\n${context}` }] : []),
           ...trimmedHistory.map((message) => ({
             role: message.role === 'ai' ? 'assistant' : 'user',
             content: message.text,

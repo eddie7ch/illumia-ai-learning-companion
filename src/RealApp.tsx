@@ -5,7 +5,12 @@ import { useCourseData } from './hooks/useCourseData';
 import { useTheme } from './hooks/useTheme';
 import { requestTutorReply } from './services/aiService';
 import { coursePresets } from './data/coursePresets';
-import { deriveRecommendation, deriveStrengthsAndImprovements, calculateOverallProgress } from './data/deriveInsights';
+import {
+  deriveRecommendation,
+  deriveStrengthsAndImprovements,
+  calculateOverallProgress,
+  buildProgressContext,
+} from './data/deriveInsights';
 import { generateLearningPlan } from './data/learningPlan';
 import type { ChatMessage } from './types';
 import AuthPanel from './components/AuthPanel';
@@ -106,7 +111,8 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
       setIsThinking(true);
       setLiveAiNotice(null);
       try {
-        const reply = await requestTutorReply(trimmed, history, apiKey);
+        const progressContext = buildProgressContext(activities, activeCourse?.title);
+        const reply = await requestTutorReply(trimmed, history, apiKey, progressContext);
         setMessages((prev) => [...prev, { id: `ai-${Date.now()}`, role: 'ai', text: reply.text }]);
         if (reply.notice) setLiveAiNotice(reply.notice);
       } catch {
@@ -118,7 +124,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
         setIsThinking(false);
       }
     },
-    [apiKey, isThinking],
+    [apiKey, isThinking, activities, activeCourse],
   );
 
   const handleAddPreset = useCallback(

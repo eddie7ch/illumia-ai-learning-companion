@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { KeyRound, Send, Sparkles } from 'lucide-react';
+import { KeyRound, Maximize2, Minimize2, Send, Sparkles } from 'lucide-react';
 import type { ChatMessage } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 
@@ -29,6 +29,7 @@ export default function AiTutorChat({
 }: AiTutorChatProps) {
   const [draft, setDraft] = useState('');
   const [showKeyPanel, setShowKeyPanel] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const apiKeyInputId = useId();
   const questionInputId = useId();
@@ -36,6 +37,20 @@ export default function AiTutorChat({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, isThinking]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   const isLive = apiKey.trim().length > 0 || isSupabaseConfigured;
 
@@ -53,21 +68,42 @@ export default function AiTutorChat({
   };
 
   return (
-    <section className="flex h-full flex-col rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
+    <section
+      className={
+        isFullscreen
+          ? 'fixed inset-0 z-50 flex h-dvh w-dvw flex-col rounded-none bg-white p-5 dark:bg-slate-800'
+          : 'flex h-full flex-col rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700'
+      }
+    >
       <div className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
           <Sparkles className="h-4 w-4 text-indigo-500 dark:text-indigo-400" aria-hidden="true" />
           Ask your AI tutor
         </h2>
-        <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-            isLive
-              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-              : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
-          }`}
-        >
-          {isLive ? 'Live AI' : 'Simulated'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              isLive
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
+            }`}
+          >
+            {isLive ? 'Live AI' : 'Simulated'}
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}
+            aria-pressed={isFullscreen}
+            className="flex items-center justify-center rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Maximize2 className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
         {isSupabaseConfigured
@@ -112,7 +148,7 @@ export default function AiTutorChat({
 
       <div
         className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1"
-        style={{ maxHeight: '20rem' }}
+        style={isFullscreen ? undefined : { maxHeight: '20rem' }}
         aria-live="polite"
       >
         {messages.map((message) => (

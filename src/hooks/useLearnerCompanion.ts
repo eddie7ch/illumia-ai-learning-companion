@@ -7,6 +7,7 @@ import {
   fetchLearningPlan,
   requestTutorReply,
 } from '../services/aiService';
+import { buildProgressContext } from '../data/deriveInsights';
 
 /** Centralizes learner profile/activity/chat state so components stay presentational. */
 export function useLearnerCompanion() {
@@ -22,6 +23,10 @@ export function useLearnerCompanion() {
   // Kept in lockstep with every setMessages call below (not via a useEffect) so
   // sendMessage always reads the latest history, even across rapid calls in the same tick.
   const messagesRef = useRef<ChatMessage[]>([]);
+
+  // Kept in lockstep with activities via setActivities below, so sendMessage always builds the
+  // progress context from the latest data even across rapid calls in the same tick.
+  const activitiesRef = useRef<Activity[]>([]);
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -53,6 +58,7 @@ export function useLearnerCompanion() {
       messagesRef.current = welcome;
       setProfile(loadedProfile);
       setActivities(loadedActivities);
+      activitiesRef.current = loadedActivities;
       setLearningPlan(plan);
       setMessages(welcome);
       setIsLoading(false);
@@ -65,27 +71,31 @@ export function useLearnerCompanion() {
 
   const completeActivity = useCallback((activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => {
     const completedOn = new Date().toISOString().slice(0, 10);
-    setActivities((prev) =>
-      prev.map((activity) =>
+    setActivities((prev) => {
+      const next = prev.map((activity) =>
         activity.id === activityId
-          ? { ...activity, status: 'completed', feedback, completedOn, timeSpentMinutes }
+          ? { ...activity, status: 'completed' as const, feedback, completedOn, timeSpentMinutes }
           : activity,
-      ),
-    );
+      );
+      activitiesRef.current = next;
+      return next;
+    });
   }, []);
 
   const logTimeSpent = useCallback((activityId: string, additionalMinutes: number) => {
-    setActivities((prev) =>
-      prev.map((activity) =>
+    setActivities((prev) => {
+      const next = prev.map((activity) =>
         activity.id === activityId
           ? {
               ...activity,
-              status: activity.status === 'not-started' ? 'in-progress' : activity.status,
+              status: activity.status === 'not-started' ? ('in-progress' as const) : activity.status,
               timeSpentMinutes: (activity.timeSpentMinutes ?? 0) + additionalMinutes,
             }
           : activity,
-      ),
-    );
+      );
+      activitiesRef.current = next;
+      return next;
+    });
   }, []);
 
   const sendMessage = useCallback(
@@ -100,7 +110,8 @@ export function useLearnerCompanion() {
       setLiveAiNotice(null);
 
       try {
-        const reply = await requestTutorReply(trimmed, history, apiKey);
+        const progressContext = buildProgressContext(activitiesRef.current, profile?.track);
+        const reply = await requestTutorReply(trimmed, history, apiKey, progressContext);
         if (!isMountedRef.current) return;
 
         appendMessage({ id: `ai-${Date.now()}`, role: 'ai', text: reply.text });
@@ -116,7 +127,7 @@ export function useLearnerCompanion() {
         if (isMountedRef.current) setIsThinking(false);
       }
     },
-    [apiKey, isThinking, appendMessage],
+    [apiKey, isThinking, appendMessage, profile],
   );
 
 

@@ -43,3 +43,40 @@ export function calculateOverallProgress(activities: Activity[]): number {
   const completed = activities.filter((activity) => activity.status === 'completed').length;
   return Math.round((completed / activities.length) * 100);
 }
+
+const MAX_CONTEXT_ACTIVITIES = 8;
+const MAX_CONTEXT_LENGTH = 1500;
+
+/**
+ * Builds a short plain-text summary of the learner's real course/activity progress, so AI tutor
+ * replies (mock or live) can be grounded in actual data instead of only the typed question.
+ */
+export function buildProgressContext(activities: Activity[], courseTitle?: string): string {
+  const lines: string[] = [];
+  if (courseTitle) lines.push(`Course: ${courseTitle}`);
+  lines.push(`Overall progress: ${calculateOverallProgress(activities)}%`);
+
+  const completed = activities.filter((activity) => activity.status === 'completed').slice(-MAX_CONTEXT_ACTIVITIES);
+  if (completed.length > 0) {
+    lines.push('Completed activities:');
+    completed.forEach((activity) => {
+      const score = activity.feedback ? `, score ${activity.feedback.score}/100` : '';
+      const date = activity.completedOn ? ` on ${activity.completedOn}` : '';
+      lines.push(`- ${activity.title} (${activity.type}, topic: ${activity.topic})${score}${date}`);
+    });
+  }
+
+  const inProgress = activities.filter((activity) => activity.status === 'in-progress');
+  if (inProgress.length > 0) {
+    lines.push('In progress:');
+    inProgress.forEach((activity) => lines.push(`- ${activity.title} (${activity.type}, topic: ${activity.topic})`));
+  }
+
+  const notStarted = activities.filter((activity) => activity.status === 'not-started').slice(0, MAX_CONTEXT_ACTIVITIES);
+  if (notStarted.length > 0) {
+    lines.push('Not started:');
+    notStarted.forEach((activity) => lines.push(`- ${activity.title} (${activity.type}, topic: ${activity.topic})`));
+  }
+
+  return lines.join('\n').slice(0, MAX_CONTEXT_LENGTH);
+}

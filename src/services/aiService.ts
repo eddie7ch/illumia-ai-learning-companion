@@ -42,7 +42,11 @@ export interface TutorReply {
 }
 
 /** Calls the /api/chat serverless function, authenticated with the current Supabase session. */
-async function requestServerChatReply(question: string, history: ChatMessage[]): Promise<string> {
+async function requestServerChatReply(
+  question: string,
+  history: ChatMessage[],
+  progressContext?: string,
+): Promise<string> {
   if (!supabase) throw new Error('Supabase is not configured.');
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -51,7 +55,7 @@ async function requestServerChatReply(question: string, history: ChatMessage[]):
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ question, history: history.slice(-10) }),
+    body: JSON.stringify({ question, history: history.slice(-10), context: progressContext }),
   });
 
   if (!response.ok) {
@@ -67,16 +71,18 @@ async function requestServerChatReply(question: string, history: ChatMessage[]):
  * Requests a tutor response. Uses a real OpenAI call when the learner supplies their own API
  * key, otherwise tries the app's server-backed AI (rate-limited, see api/chat.ts), falling back
  * to the simulated responder (with a notice) if either live path fails or isn't available.
+ * `progressContext` (see `buildProgressContext`) grounds live replies in the learner's real data.
  */
 export async function requestTutorReply(
   question: string,
   history: ChatMessage[],
   apiKey: string,
+  progressContext?: string,
 ): Promise<TutorReply> {
   const trimmedKey = apiKey.trim();
   if (trimmedKey) {
     try {
-      const text = await getLiveAiResponse(question, trimmedKey, history);
+      const text = await getLiveAiResponse(question, trimmedKey, history, progressContext);
       return { text };
     } catch (error) {
       const message = error instanceof LiveAiError ? error.message : 'Something went wrong.';
@@ -90,7 +96,7 @@ export async function requestTutorReply(
 
   if (isSupabaseConfigured) {
     try {
-      const text = await requestServerChatReply(question, history);
+      const text = await requestServerChatReply(question, history, progressContext);
       return { text };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong.';
