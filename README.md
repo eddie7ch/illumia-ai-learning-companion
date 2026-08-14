@@ -174,6 +174,13 @@ unchanged.
 5. Run `npm run dev` (or deploy) — once `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are present,
    the app boots into real mode and prompts you to sign up.
 
+> **Note:** plain `npm run dev` only runs the Vite dev server — it does **not** serve the
+> `/api/*` serverless functions (`grade.ts`, `chat.ts`, `generate-quiz.ts`). Auth and data
+> persistence work fine under it, but AI grading, server-backed tutor chat, and live quiz
+> generation will silently fall back to simulated responses (with an inline notice) since those
+> requests 404. To exercise the real serverless-backed AI locally, run `npx vercel dev` instead
+> (reads the same `.env`) — it serves both the app and the `/api` functions together.
+
 ### Cost controls & abuse prevention
 
 Since AI grading and tutor chat both call OpenAI using a shared server-side key, several layers of

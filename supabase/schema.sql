@@ -92,9 +92,28 @@ create index if not exists chat_events_created_at_idx on chat_events (created_at
 
 alter table chat_events enable row level security;
 
--- Any signed-in user can count all rows (needed to check the shared global daily total),
--- but can only ever insert a row tagged with their own user id.
+-- Each user can only ever see/insert their own rows directly (no cross-user reads via the
+-- normal PostgREST API/anon key). The shared global daily total needed by /api/chat is instead
+-- obtained through the SECURITY DEFINER function below, which is the only way to get that
+-- cross-user count — this avoids exposing every user's id/timestamp to any other signed-in user.
 drop policy if exists "chat_events: read all" on chat_events;
-create policy "chat_events: read all" on chat_events for select using (auth.role() = 'authenticated');
+drop policy if exists "chat_events: owner read" on chat_events;
+create policy "chat_events: owner read" on chat_events for select using (auth.uid() = user_id);
 drop policy if exists "chat_events: insert own" on chat_events;
 create policy "chat_events: insert own" on chat_events for insert with check (auth.uid() = user_id);
+
+-- Lets any signed-in user learn the shared global daily chat count (needed to enforce
+-- GLOBAL_DAILY_LIMIT in api/chat.ts) without granting cross-user SELECT access to the table
+-- itself. SECURITY DEFINER runs with the function owner's privileges, bypassing RLS internally,
+-- while callers still only ever get a single number back, never other users' rows.
+create or replace function chat_events_daily_count()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select count(*) from chat_events where created_at >= now() - interval '24 hours';
+$$;
+
+revoke all on function chat_events_daily_count() from public;
+grant execute on function chat_events_daily_count() to authenticated;
