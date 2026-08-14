@@ -126,7 +126,9 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
     `${formatDuration(totalMinutes)} invested across ${activeDayCount} active day${activeDayCount === 1 ? '' : 's'}, ` +
     `longest streak ${longestStreak} day${longestStreak === 1 ? '' : 's'}. Click a day to see details.`;
 
-  const selectedEntry = selectedKey ? byDate.get(selectedKey) : undefined;
+  const mostRecentKey = sortedDateKeys[sortedDateKeys.length - 1];
+  const displayKey = selectedKey ?? mostRecentKey;
+  const displayEntry = byDate.get(displayKey);
 
   return (
     <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
@@ -175,7 +177,7 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
                 const key = toDateKey(day);
                 const entry = byDate.get(key);
                 const level = levelForMinutes(entry?.minutes ?? 0);
-                const isSelected = key === selectedKey;
+                const isSelected = key === displayKey;
                 return (
                   <button
                     key={key}
@@ -199,18 +201,19 @@ export default function ActivityCalendar({ activities }: ActivityCalendarProps) 
         </div>
       </div>
 
-      {selectedKey && (
-        <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/40 dark:text-slate-300 dark:ring-slate-700">
-          <p className="font-medium text-slate-700 dark:text-slate-200">{formatDisplayDate(selectedKey)}</p>
-          {selectedEntry ? (
-            <p className="mt-1">
-              {formatDuration(selectedEntry.minutes)} spent on {selectedEntry.titles.join(', ')}
-            </p>
-          ) : (
-            <p className="mt-1">No activity on this day.</p>
-          )}
-        </div>
-      )}
+      <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/40 dark:text-slate-300 dark:ring-slate-700">
+        <p className="font-medium text-slate-700 dark:text-slate-200">
+          {formatDisplayDate(displayKey)}
+          {!selectedKey && ' (most recent)'}
+        </p>
+        {displayEntry ? (
+          <p className="mt-1">
+            {formatDuration(displayEntry.minutes)} spent on {displayEntry.titles.join(', ')}
+          </p>
+        ) : (
+          <p className="mt-1">No activity on this day.</p>
+        )}
+      </div>
 
       <ul className="sr-only">
         {sortedDateKeys.map((key) => {

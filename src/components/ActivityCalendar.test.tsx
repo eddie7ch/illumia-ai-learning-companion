@@ -63,17 +63,31 @@ describe('ActivityCalendar', () => {
     expect(screen.getByText(`${today}: 45m spent on Activity 1`)).toBeInTheDocument();
   });
 
-  it('shows time spent on a day when its cell is clicked, and hides it when clicked again', async () => {
-    const user = userEvent.setup();
+  it('shows the most recent active day by default without needing a click', () => {
     const today = dateKey(new Date());
     render(<ActivityCalendar activities={[activity('1', today, 45)]} />);
 
-    const cell = screen.getByRole('button', { name: new RegExp(`45m spent on Activity 1`, 'i') });
-    await user.click(cell);
-
     expect(screen.getAllByText(/45m spent on Activity 1/i).length).toBeGreaterThan(1);
+    expect(screen.getByText(/most recent/i)).toBeInTheDocument();
+  });
 
-    await user.click(cell);
-    expect(screen.getAllByText(/45m spent on Activity 1/i)).toHaveLength(1);
+  it('shows time spent on a different day when its cell is clicked, and reverts to the default when clicked again', async () => {
+    const user = userEvent.setup();
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const todayKey = dateKey(today);
+    const yesterdayKey = dateKey(yesterday);
+    render(<ActivityCalendar activities={[activity('1', yesterdayKey, 20), activity('2', todayKey, 45)]} />);
+
+    const yesterdayCell = screen.getByRole('button', { name: /20m spent on Activity 1/i });
+    await user.click(yesterdayCell);
+
+    expect(screen.getAllByText(/20m spent on Activity 1/i).length).toBeGreaterThan(1);
+    expect(screen.queryByText(/most recent/i)).not.toBeInTheDocument();
+
+    await user.click(yesterdayCell);
+    expect(screen.getByText(/most recent/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/45m spent on Activity 2/i).length).toBeGreaterThan(1);
   });
 });

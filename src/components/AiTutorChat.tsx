@@ -50,7 +50,10 @@ export default function AiTutorChat({
   const availableQuizzes = (activities ?? []).filter(
     (activity) => activity.type === 'quiz' && activity.status !== 'completed' && (activity.questions?.length ?? 0) > 0,
   );
-  const activeQuiz = activeQuizId ? availableQuizzes.find((activity) => activity.id === activeQuizId) : undefined;
+  // Looked up from all activities (not just availableQuizzes) so a completed quiz can still be retaken.
+  const activeQuiz = activeQuizId
+    ? (activities ?? []).find((activity) => activity.id === activeQuizId && (activity.questions?.length ?? 0) > 0)
+    : undefined;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: 'nearest' });

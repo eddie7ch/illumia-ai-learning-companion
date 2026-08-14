@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { BookOpen, Code2, HelpCircle, MessageCircle, Sparkles } from 'lucide-react';
+import { BookOpen, Code2, HelpCircle, MessageCircle, RotateCcw, Sparkles } from 'lucide-react';
 import type { Activity, AiFeedback, QuizQuestion } from '../types';
 import { formatDuration } from '../utils/duration';
 import Drawer from './Drawer';
@@ -68,6 +68,11 @@ export default function ActivityCard({
     activity.status !== 'completed' &&
     (Boolean(onRequestQuiz) || (activity.questions?.length ?? 0) > 0);
   const canStartQuizInChat = canStartQuiz && Boolean(onStartQuizInChat) && (activity.questions?.length ?? 0) > 0;
+  const canRetakeQuizInChat =
+    activity.type === 'quiz' &&
+    activity.status === 'completed' &&
+    (activity.questions?.length ?? 0) > 0 &&
+    Boolean(onStartQuizInChat);
   const hasReadingMaterial = activity.type === 'lesson' && Boolean(activity.content);
   const TypeIcon = typeIcons[activity.type];
   const quizQuestions = liveQuestions ?? activity.questions;
@@ -213,7 +218,7 @@ export default function ActivityCard({
       )}
 
       {hasFeedback && (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
@@ -223,6 +228,17 @@ export default function ActivityCard({
             <Sparkles className="h-4 w-4" aria-hidden="true" />
             View AI feedback
           </button>
+
+          {canRetakeQuizInChat && (
+            <button
+              type="button"
+              onClick={() => onStartQuizInChat?.(activity.id)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 focus:outline-none focus-visible:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Retake in AI chat
+            </button>
+          )}
 
           <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title={activity.title}>
             {activity.feedback && <FeedbackPanel feedback={activity.feedback} />}
