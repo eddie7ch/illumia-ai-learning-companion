@@ -177,6 +177,10 @@ protection keep costs bounded even if the app is left publicly reachable:
   server-backed chat replies/day** (not per-user, since this is a demo cost cap rather than
   per-account abuse prevention), tracked via a `chat_events` table. Once the shared cap is hit for
   the day, the chat falls back to a simulated response with a notice until it resets.
+  Cost-wise, each reply is a small `gpt-4o-mini` call (~500 input tokens of prompt/history +
+  up to 200 output tokens), roughly **$0.0002 per chat**. At the full 100/day cap that's about
+  **$0.02/day, or under $1/month** even if the limit is hit every single day — well inside the
+  $10/month account-wide cap below.
 - **OpenAI account-wide spend limit** — a hard monthly budget (with a hard-enforcement toggle, not
   just an alert) is set directly in the OpenAI dashboard at
   [platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits).
