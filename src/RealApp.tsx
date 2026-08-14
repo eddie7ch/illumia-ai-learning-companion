@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, MessageCircle } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { useCourseData } from './hooks/useCourseData';
 import { useTheme } from './hooks/useTheme';
@@ -27,6 +27,7 @@ import AiTutorChat from './components/AiTutorChat';
 import ThemeToggle from './components/ThemeToggle';
 import LiveClock from './components/LiveClock';
 import StudySessionCard from './components/StudySessionCard';
+import Drawer from './components/Drawer';
 import { DashboardSkeleton, ChatSkeleton } from './components/Skeleton';
 import { StudySessionProvider } from './context/StudySessionContext';
 
@@ -102,11 +103,13 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
   const [liveAiNotice, setLiveAiNotice] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [pendingQuizActivityId, setPendingQuizActivityId] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
   const handleStartQuizInChat = (activityId: string) => {
     setPendingQuizActivityId(activityId);
+    setIsChatOpen(true);
     document.getElementById('ai-tutor-chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -253,6 +256,36 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
           </div>
         )}
       </main>
+
+      {!isLoading && (
+        <button
+          type="button"
+          onClick={() => setIsChatOpen(true)}
+          aria-label="Open AI tutor chat"
+          className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 lg:hidden"
+        >
+          <MessageCircle className="h-6 w-6" aria-hidden="true" />
+        </button>
+      )}
+
+      <div className="lg:hidden">
+        <Drawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} title="Ask your AI tutor">
+          {isChatOpen && (
+            <AiTutorChat
+              messages={messages}
+              isThinking={isThinking}
+              liveAiNotice={liveAiNotice}
+              apiKey={apiKey}
+              onApiKeyChange={setApiKey}
+              onSend={sendMessage}
+              activities={activities}
+              onCompleteQuiz={completeQuiz}
+              autoStartQuizId={pendingQuizActivityId}
+              onAutoStartQuizHandled={() => setPendingQuizActivityId(null)}
+            />
+          )}
+        </Drawer>
+      </div>
     </div>
   );
 }
