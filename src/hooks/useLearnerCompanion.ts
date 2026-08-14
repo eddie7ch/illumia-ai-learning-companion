@@ -74,6 +74,20 @@ export function useLearnerCompanion() {
     );
   }, []);
 
+  const logTimeSpent = useCallback((activityId: string, additionalMinutes: number) => {
+    setActivities((prev) =>
+      prev.map((activity) =>
+        activity.id === activityId
+          ? {
+              ...activity,
+              status: activity.status === 'not-started' ? 'in-progress' : activity.status,
+              timeSpentMinutes: (activity.timeSpentMinutes ?? 0) + additionalMinutes,
+            }
+          : activity,
+      ),
+    );
+  }, []);
+
   const sendMessage = useCallback(
     async (question: string) => {
       const trimmed = question.trim();
@@ -118,5 +132,6 @@ export function useLearnerCompanion() {
     setApiKey,
     sendMessage,
     completeActivity,
+    logTimeSpent,
   };
 }

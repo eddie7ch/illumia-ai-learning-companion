@@ -3,6 +3,7 @@ import { activities, initialChatMessages, learnerProfile } from '../data/mockDat
 import { getMockAiResponse } from '../data/aiTutor';
 import { getLiveAiResponse, LiveAiError } from '../data/liveAi';
 import { generateLearningPlan } from '../data/learningPlan';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const MIN_DELAY_MS = 1000;
 const MAX_DELAY_MS = 1500;
@@ -40,9 +41,32 @@ export interface TutorReply {
   notice?: string;
 }
 
+/** Calls the /api/chat serverless function, authenticated with the current Supabase session. */
+async function requestServerChatReply(question: string, history: ChatMessage[]): Promise<string> {
+  if (!supabase) throw new Error('Supabase is not configured.');
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('You must be signed in to use the AI tutor.');
+
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ question, history: history.slice(-10) }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error || `Request failed with status ${response.status}`);
+  }
+  const body = await response.json();
+  if (!body?.text) throw new Error('The AI response was empty.');
+  return body.text as string;
+}
+
 /**
- * Requests a tutor response. Uses a real OpenAI call when an API key is supplied, falling back to
- * the simulated responder (with a notice) if the live call fails or no key is provided.
+ * Requests a tutor response. Uses a real OpenAI call when the learner supplies their own API
+ * key, otherwise tries the app's server-backed AI (rate-limited, see api/chat.ts), falling back
+ * to the simulated responder (with a notice) if either live path fails or isn't available.
  */
 export async function requestTutorReply(
   question: string,
@@ -56,6 +80,20 @@ export async function requestTutorReply(
       return { text };
     } catch (error) {
       const message = error instanceof LiveAiError ? error.message : 'Something went wrong.';
+      await simulateLatency();
+      return {
+        text: getMockAiResponse(question),
+        notice: `Live AI unavailable (${message}). Showing a simulated response instead.`,
+      };
+    }
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const text = await requestServerChatReply(question, history);
+      return { text };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong.';
       await simulateLatency();
       return {
         text: getMockAiResponse(question),

@@ -30,6 +30,7 @@ function App() {
     setApiKey,
     sendMessage,
     completeActivity,
+    logTimeSpent,
   } = useLearnerCompanion();
   const { theme, toggleTheme } = useTheme();
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -76,7 +77,7 @@ function App() {
                 />
                 <RecommendationCard recommendation={profile.recommendation} />
                 <LearningPlan steps={learningPlan} />
-                <ActivityList activities={activities} onCompleteQuiz={completeActivity} />
+                <ActivityList activities={activities} onCompleteQuiz={completeActivity} onTimeSpent={logTimeSpent} />
               </>
             )}
           </div>

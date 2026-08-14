@@ -30,6 +30,13 @@ export const activities: Activity[] = [
     status: 'completed',
     completedOn: '2026-07-20',
     timeSpentMinutes: 25,
+    content:
+      'A React component is just a function that returns JSX (HTML-like markup written in JavaScript). ' +
+      'Components let you split the UI into independent, reusable pieces, each responsible for one part ' +
+      'of the screen. Component names must start with a capital letter so React can tell them apart from ' +
+      'regular HTML tags. A component can render other components, forming a tree — your whole app is ' +
+      'usually one root component made of many smaller ones. Props (short for "properties") are how a ' +
+      'parent passes data down to a child component, similar to function arguments.',
   },
   {
     id: 'lesson-2',
@@ -39,6 +46,13 @@ export const activities: Activity[] = [
     status: 'completed',
     completedOn: '2026-07-22',
     timeSpentMinutes: 35,
+    content:
+      'Props are read-only data passed into a component from its parent — a component should never modify ' +
+      'its own props. State is data a component owns and manages itself, created with the `useState` hook, ' +
+      'and it can change over time in response to user actions (clicks, typing, etc.). Calling the state ' +
+      'setter function schedules a re-render with the new value. A useful rule of thumb: if a value is ' +
+      'passed in from outside, it is a prop; if a component needs to remember something and change it later, ' +
+      'that is state.',
   },
   {
     id: 'exercise-1',
@@ -106,6 +120,13 @@ export const activities: Activity[] = [
     topic: 'Performance',
     status: 'in-progress',
     timeSpentMinutes: 15,
+    content:
+      'React re-renders a component whenever its state or props change, and by default also re-renders ' +
+      'its children. For most apps this is fast enough and needs no special attention. When a specific ' +
+      'component is genuinely slow, `React.memo` can skip re-rendering it if its props haven’t changed, ' +
+      'and `useMemo`/`useCallback` can avoid recreating expensive values or functions on every render. ' +
+      'Rule of thumb: measure first (e.g. with the React DevTools Profiler) before reaching for these — ' +
+      'optimizing code that isn’t actually slow adds complexity for no benefit.',
   },
   {
     id: 'exercise-3',

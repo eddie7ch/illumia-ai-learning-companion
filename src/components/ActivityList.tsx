@@ -5,9 +5,10 @@ interface ActivityListProps {
   activities: Activity[];
   onSubmitForGrading?: (activity: Activity, submission: string, minutes: number) => Promise<void>;
   onCompleteQuiz?: (activityId: string, feedback: AiFeedback, timeSpentMinutes: number) => void;
+  onTimeSpent?: (activityId: string, additionalMinutes: number) => void;
 }
 
-export default function ActivityList({ activities, onSubmitForGrading, onCompleteQuiz }: ActivityListProps) {
+export default function ActivityList({ activities, onSubmitForGrading, onCompleteQuiz, onTimeSpent }: ActivityListProps) {
   return (
     <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
       <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Your activities</h2>
@@ -20,6 +21,7 @@ export default function ActivityList({ activities, onSubmitForGrading, onComplet
               onSubmitForGrading ? (submission, minutes) => onSubmitForGrading(activity, submission, minutes) : undefined
             }
             onCompleteQuiz={onCompleteQuiz}
+            onTimeSpent={onTimeSpent}
           />
         ))}
       </ul>

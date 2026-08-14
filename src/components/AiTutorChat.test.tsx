@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import AiTutorChat from './AiTutorChat';
 import type { ChatMessage } from '../types';
 
+vi.mock('../services/supabaseClient', () => ({ isSupabaseConfigured: false, supabase: null }));
+
 const initialMessages: ChatMessage[] = [
   { id: 'welcome', role: 'ai', text: 'Hi! Ask me anything.' },
 ];
@@ -86,7 +88,7 @@ describe('AiTutorChat', () => {
     const user = userEvent.setup();
     const { onApiKeyChange } = renderChat();
 
-    await user.click(screen.getByRole('button', { name: /connect a real ai/i }));
+    await user.click(screen.getByRole('button', { name: /use your own openai key/i }));
     await user.type(screen.getByLabelText('OpenAI API key'), 'k');
 
     expect(onApiKeyChange).toHaveBeenCalledWith('k');

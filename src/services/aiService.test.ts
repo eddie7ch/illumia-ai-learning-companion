@@ -1,16 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { activities, initialChatMessages, learnerProfile } from '../data/mockData';
-import {
+
+const mockGetSession = vi.fn();
+let mockIsSupabaseConfigured = false;
+
+vi.mock('./supabaseClient', () => ({
+  get isSupabaseConfigured() {
+    return mockIsSupabaseConfigured;
+  },
+  supabase: { auth: { getSession: () => mockGetSession() } },
+}));
+
+const {
   fetchActivities,
   fetchInitialChatMessages,
   fetchLearnerProfile,
   fetchLearningPlan,
   requestTutorReply,
-} from './aiService';
+} = await import('./aiService');
 
 describe('aiService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    mockIsSupabaseConfigured = false;
+    mockGetSession.mockReset();
   });
 
   afterEach(() => {
@@ -55,5 +68,45 @@ describe('aiService', () => {
     await vi.advanceTimersByTimeAsync(1500);
     const reply = await promise;
     expect(reply.notice).toMatch(/Live AI unavailable/i);
+  });
+
+  it('uses the server-backed chat endpoint when no key is given but Supabase is configured', async () => {
+    mockIsSupabaseConfigured = true;
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token-123' } } });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: 'Server-backed reply.' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const reply = await requestTutorReply('Why is my component re-rendering?', [], '');
+
+    expect(reply).toEqual({ text: 'Server-backed reply.' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/chat',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+      }),
+    );
+  });
+
+  it('falls back to the simulated responder when the server-backed chat endpoint fails', async () => {
+    mockIsSupabaseConfigured = true;
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token-123' } } });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: 'Rate limit reached.' }),
+      }),
+    );
+
+    const promise = requestTutorReply('Why is my component re-rendering?', [], '');
+    await vi.advanceTimersByTimeAsync(1500);
+    const reply = await promise;
+
+    expect(reply.text).toMatch(/re-render/i);
+    expect(reply.notice).toMatch(/Live AI unavailable \(Rate limit reached\.\)/i);
   });
 });

@@ -24,6 +24,8 @@ function rowToActivity(row: ActivityRow): Activity {
     completedOn: row.completed_on ?? undefined,
     timeSpentMinutes: row.time_spent_minutes ?? undefined,
     feedback: row.feedback ?? undefined,
+    questions: row.questions ?? undefined,
+    content: row.content ?? undefined,
   };
 }
 
@@ -76,6 +78,8 @@ export async function createCourseFromPreset(userId: string, preset: CoursePrese
     type: activity.type,
     topic: activity.topic,
     status: 'not-started' as const,
+    questions: activity.questions ?? null,
+    content: activity.content ?? null,
     sort_order: index,
   }));
   const { error: activitiesError } = await client.from('activities').insert(activityRows);
@@ -184,6 +188,39 @@ export async function seedDemoCourse(userId: string): Promise<Course> {
       completed_on: null,
       time_spent_minutes: null,
       feedback: null,
+      questions: [
+        {
+          id: 'q1',
+          prompt: 'Which Testing Library query should you prefer for an interactive button?',
+          choices: ['getByTestId', 'getByRole', 'getByClassName', 'querySelector'],
+          correctIndex: 1,
+          explanation: 'getByRole reflects how assistive tech and users find elements, so prefer it over test IDs or class names.',
+        },
+        {
+          id: 'q2',
+          prompt: 'What does `userEvent.click()` simulate more accurately than `fireEvent.click()`?',
+          choices: [
+            'Nothing, they are identical',
+            'The full sequence of real user interactions (hover, focus, click)',
+            'Server-side rendering',
+            'CSS animations',
+          ],
+          correctIndex: 1,
+          explanation: '`userEvent` fires the full realistic event sequence a browser would dispatch, catching more bugs than a single synthetic event.',
+        },
+        {
+          id: 'q3',
+          prompt: 'In a React component test, why mock the network/service layer instead of letting real requests fire?',
+          choices: [
+            'It makes tests slower',
+            'It keeps tests fast, deterministic, and independent of a live backend',
+            'It is required by TypeScript',
+            'It improves code coverage automatically',
+          ],
+          correctIndex: 1,
+          explanation: 'Mocking the service layer removes network flakiness and lets you control exactly what data a test exercises.',
+        },
+      ],
     },
   ].map((activity, index) => ({ course_id: courseRow.id, user_id: userId, sort_order: index, ...activity }));
 
@@ -257,6 +294,28 @@ export async function saveGradedActivity(
       time_spent_minutes: totalMinutes,
       feedback,
     })
+    .eq('id', activityId)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToActivity(data);
+}
+
+/** Accumulates time spent on an activity (e.g. reading material left open) without grading it. */
+export async function addTimeSpent(activityId: string, additionalMinutes: number): Promise<Activity> {
+  const client = requireClient();
+  const { data: existing, error: fetchError } = await client
+    .from('activities')
+    .select('time_spent_minutes, status')
+    .eq('id', activityId)
+    .single();
+  if (fetchError) throw fetchError;
+
+  const totalMinutes = (existing?.time_spent_minutes ?? 0) + additionalMinutes;
+  const nextStatus = existing?.status === 'not-started' ? 'in-progress' : existing?.status;
+  const { data, error } = await client
+    .from('activities')
+    .update({ time_spent_minutes: totalMinutes, status: nextStatus })
     .eq('id', activityId)
     .select()
     .single();

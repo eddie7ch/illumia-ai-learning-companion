@@ -137,6 +137,11 @@ actually use for your own learning:
 - **AI-graded activities** — submit an answer/code for any activity and a serverless function
   (`api/grade.ts`) grades it with OpenAI, using a **server-only** API key that never reaches the
   browser (unlike the client-side "bring your own key" tutor chat above).
+- **Server-backed AI tutor chat** — once signed in, the tutor chat panel answers with real OpenAI
+  responses by default via another serverless function (`api/chat.ts`), using the same server-only
+  key. No key needed from the learner; the "bring your own key" panel is still there as an
+  alternative. Shared across all users by a global daily cap (see below), since this is a demo, not
+  a paid product.
 
 Real mode activates automatically once Supabase is configured; otherwise the app falls back to the
 demo experience, so the existing [live demo](https://illumia-one.vercel.app) keeps working
@@ -150,24 +155,28 @@ unchanged.
 3. Copy `.env.example` to `.env` and fill in your project's **URL** and **anon public key** (Project
    Settings → API). Both are safe to expose client-side — Supabase's Row Level Security, not
    secrecy of this key, is what protects each user's data.
-4. For AI grading, set these as **server-only** environment variables (in Vercel's dashboard for a
-   deployed app, or a local `.env` read by `vercel dev`) — never commit them or paste them into
-   client code:
-   - `OPENAI_API_KEY` — your own OpenAI key.
-   - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — same values as step 3 (the serverless
-     function re-validates the caller's session token independently of the browser).
+4. For AI grading and tutor chat, set these as **server-only** environment variables (in Vercel's
+   dashboard for a deployed app, or a local `.env` read by `vercel dev`) — never commit them or
+   paste them into client code:
+   - `OPENAI_API_KEY` — your own OpenAI key, used by both `api/grade.ts` and `api/chat.ts`.
+   - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — same values as step 3 (both serverless
+     functions re-validate the caller's session token independently of the browser).
 5. Run `npm run dev` (or deploy) — once `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are present,
    the app boots into real mode and prompts you to sign up.
 
 ### Cost controls & abuse prevention
 
-Since AI grading calls OpenAI using a shared server-side key, two layers of protection keep costs
-bounded even if the app is left publicly reachable:
+Since AI grading and tutor chat both call OpenAI using a shared server-side key, several layers of
+protection keep costs bounded even if the app is left publicly reachable:
 
-- **Per-user rate limiting** — `api/grade.ts` caps each signed-in user at **15 grading calls/hour**
-  and **50/day**, enforced server-side via a `grading_events` log table (see `supabase/schema.sql`)
-  with its own owner-scoped RLS policy. Requests over the limit get a `429` before any OpenAI call
-  is made, so a single account can't drive up spend.
+- **Per-user rate limiting on grading** — `api/grade.ts` caps each signed-in user at **15 grading
+  calls/hour** and **50/day**, enforced server-side via a `grading_events` log table (see
+  `supabase/schema.sql`) with its own owner-scoped RLS policy. Requests over the limit get a `429`
+  before any OpenAI call is made, so a single account can't drive up spend.
+- **Shared global daily limit on tutor chat** — `api/chat.ts` caps the *whole app* at **100
+  server-backed chat replies/day** (not per-user, since this is a demo cost cap rather than
+  per-account abuse prevention), tracked via a `chat_events` table. Once the shared cap is hit for
+  the day, the chat falls back to a simulated response with a notice until it resets.
 - **OpenAI account-wide spend limit** — a hard monthly budget (with a hard-enforcement toggle, not
   just an alert) is set directly in the OpenAI dashboard at
   [platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits).

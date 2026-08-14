@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { KeyRound, Send, Sparkles } from 'lucide-react';
 import type { ChatMessage } from '../types';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 
 const QUICK_PROMPTS = [
   'Why is my score low on this activity?',
@@ -36,7 +37,7 @@ export default function AiTutorChat({
     messagesEndRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, isThinking]);
 
-  const isLive = apiKey.trim().length > 0;
+  const isLive = apiKey.trim().length > 0 || isSupabaseConfigured;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -69,14 +70,16 @@ export default function AiTutorChat({
         </span>
       </div>
       <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-        Responses are simulated by default for this prototype.{' '}
+        {isSupabaseConfigured
+          ? 'Answered by real AI on a shared demo key (rate-limited).'
+          : 'Responses are simulated by default for this prototype.'}{' '}
         <button
           type="button"
           onClick={() => setShowKeyPanel((prev) => !prev)}
           className="font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
           aria-expanded={showKeyPanel}
         >
-          {showKeyPanel ? 'Hide' : 'Connect a real AI (optional)'}
+          {showKeyPanel ? 'Hide' : 'Use your own OpenAI key instead (optional)'}
         </button>
       </p>
 
@@ -100,7 +103,8 @@ export default function AiTutorChat({
           />
           <p className="mt-1.5 text-slate-400 dark:text-slate-500">
             Your key stays in this browser tab only (never persisted or sent anywhere but OpenAI) and
-            is cleared on reload. Leave blank to keep using simulated responses.
+            is cleared on reload. Leave blank to keep using the shared demo AI (or simulated
+            responses if it isn't configured).
           </p>
         </div>
       )}

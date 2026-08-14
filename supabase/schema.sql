@@ -29,9 +29,15 @@ create table if not exists activities (
   completed_on date,
   time_spent_minutes integer,
   feedback jsonb,
+  questions jsonb,
+  content text,
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- Safe to re-run: adds these columns if the table already existed before they were introduced.
+alter table activities add column if not exists questions jsonb;
+alter table activities add column if not exists content text;
 
 create index if not exists activities_course_id_idx on activities (course_id);
 create index if not exists courses_user_id_idx on courses (user_id);
@@ -73,3 +79,22 @@ drop policy if exists "grading_events: owner all" on grading_events;
 create policy "grading_events: owner all" on grading_events for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Logs one row per server-backed AI tutor chat reply, used to enforce a shared global
+-- daily cap on /api/chat (demo cost control, not per-user like grading_events above).
+create table if not exists chat_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists chat_events_created_at_idx on chat_events (created_at);
+
+alter table chat_events enable row level security;
+
+-- Any signed-in user can count all rows (needed to check the shared global daily total),
+-- but can only ever insert a row tagged with their own user id.
+drop policy if exists "chat_events: read all" on chat_events;
+create policy "chat_events: read all" on chat_events for select using (auth.role() = 'authenticated');
+drop policy if exists "chat_events: insert own" on chat_events;
+create policy "chat_events: insert own" on chat_events for insert with check (auth.uid() = user_id);

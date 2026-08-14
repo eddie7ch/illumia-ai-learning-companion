@@ -4,6 +4,14 @@ export interface ActivityFeedbackJson {
   suggestions: string[];
 }
 
+export interface ActivityQuestionJson {
+  id: string;
+  prompt: string;
+  choices: string[];
+  correctIndex: number;
+  explanation?: string;
+}
+
 export interface ActivityRow {
   id: string;
   course_id: string;
@@ -15,6 +23,8 @@ export interface ActivityRow {
   completed_on: string | null;
   time_spent_minutes: number | null;
   feedback: ActivityFeedbackJson | null;
+  questions: ActivityQuestionJson[] | null;
+  content: string | null;
   sort_order: number;
   created_at: string;
 }

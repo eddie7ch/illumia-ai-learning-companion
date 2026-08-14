@@ -3,6 +3,7 @@ import type { Activity, ActivityType, AiFeedback } from '../types';
 import type { CoursePreset } from '../data/coursePresets';
 import {
   addActivity as addActivityRow,
+  addTimeSpent,
   createCourseFromPreset,
   createCustomCourse,
   ensureProfile,
@@ -122,6 +123,11 @@ export function useCourseData(userId: string, userEmail: string | null, isGuest 
     setActivities((prev) => prev.map((item) => (item.id === activityId ? updated : item)));
   }, []);
 
+  const logTimeSpent = useCallback(async (activityId: string, additionalMinutes: number) => {
+    const updated = await addTimeSpent(activityId, additionalMinutes);
+    setActivities((prev) => prev.map((item) => (item.id === activityId ? updated : item)));
+  }, []);
+
   const activeCourse = courses.find((course) => course.id === activeCourseId) ?? null;
 
   return {
@@ -136,5 +142,6 @@ export function useCourseData(userId: string, userEmail: string | null, isGuest 
     addActivity,
     submitForGrading,
     completeQuiz,
+    logTimeSpent,
   };
 }

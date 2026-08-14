@@ -26,6 +26,7 @@ export interface Activity {
   timeSpentMinutes?: number;
   feedback?: AiFeedback;
   questions?: QuizQuestion[];
+  content?: string;
 }
 
 export interface Recommendation {
