@@ -206,6 +206,14 @@ protection keep costs bounded even if the app is left publicly reachable:
   up to 200 output tokens), roughly **$0.0002 per chat**. At the full 100/day cap that's about
   **$0.02/day, or under $1/month** even if the limit is hit every single day — well inside the
   $10/month account-wide cap below.
+- **Shared global $5/day AI spend cap across every endpoint** — `api/_aiBudget.ts` estimates the
+  USD cost (from each OpenAI response's `usage.prompt_tokens`/`completion_tokens`, at `gpt-4o-mini`
+  pricing) of every call made by `chat.ts`, `grade.ts`, `generate-quiz.ts`,
+  `generate-diagnostic.ts`, `observe-screen.ts`, and `save-session-summary.ts`, and logs it to an
+  `ai_usage_events` table. Before making an OpenAI call, every endpoint checks the combined
+  estimated spend across all of them for the last 24 hours (via the `ai_usage_daily_cost_usd()`
+  Postgres function) and returns a `429` once it reaches **$5**, regardless of which feature or
+  user is responsible — a hard demo-wide ceiling on top of the per-feature limits above.
 - **OpenAI account-wide spend limit** — a hard monthly budget (with a hard-enforcement toggle, not
   just an alert) is set directly in the OpenAI dashboard at
   [platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits).

@@ -54,7 +54,7 @@ describe('useRealtimeVoiceSession', () => {
     const peer = FakePeerConnection.latest!;
     expect(fetch).toHaveBeenCalledWith('/api/realtime-session', expect.objectContaining({
       method: 'POST',
-      body: 'v=0 test-offer',
+      body: JSON.stringify({ sdp: 'v=0 test-offer' }),
       headers: expect.objectContaining({ Authorization: 'Bearer session-token' }),
     }));
     expect(peer.setRemoteDescription).toHaveBeenCalledWith({ type: 'answer', sdp: 'v=0 answer' });

@@ -44,7 +44,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const userId = userData.user.id;
 
-  const sdp = typeof req.body === 'string' ? req.body : Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
+  const body = req.body as unknown;
+  const sdp =
+    typeof body === 'string'
+      ? body
+      : Buffer.isBuffer(body)
+        ? body.toString('utf8')
+        : body && typeof body === 'object' && 'sdp' in body && typeof (body as { sdp?: unknown }).sdp === 'string'
+          ? (body as { sdp: string }).sdp
+          : '';
   if (!sdp || sdp.length > MAX_SDP_LENGTH || !sdp.startsWith('v=0')) {
     res.status(400).json({ error: 'Missing or invalid WebRTC session description.' });
     return;

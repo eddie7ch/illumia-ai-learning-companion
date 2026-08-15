@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { AI_BUDGET_EXCEEDED_MESSAGE, isWithinDailyAiBudget, recordAiUsage } from './_aiBudget.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const HOURLY_LIMIT = 120;
@@ -78,6 +79,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(429).json({ error: 'Live observation limit reached. Pause and try again later.' });
     return;
   }
+  if (!(await isWithinDailyAiBudget(supabase))) {
+    res.status(429).json({ error: AI_BUDGET_EXCEEDED_MESSAGE });
+    return;
+  }
 
   const activityList = activities.map((activity: ActivityInput) =>
     `${activity.id}: ${activity.title} | ${activity.topic} | ${activity.type} | ${activity.status}`,
@@ -122,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     const content = data.choices?.[0]?.message?.content;
     const raw = content ? JSON.parse(content) as Record<string, unknown> : null;
     if (!raw || typeof raw.summary !== 'string' || typeof raw.evidence !== 'string') {
@@ -153,6 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(500).json({ error: 'The observation could not be recorded.' });
       return;
     }
+    await recordAiUsage(supabase, userId, 'observe', data.usage);
     res.status(200).json({ observation });
   } catch {
     res.status(502).json({ error: 'Could not reach the live AI observer.' });

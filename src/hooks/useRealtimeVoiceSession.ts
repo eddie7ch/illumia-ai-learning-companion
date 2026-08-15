@@ -157,11 +157,11 @@ export function useRealtimeVoiceSession() {
       const response = await fetch('/api/realtime-session', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/sdp',
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
           'X-Learning-Context': safeContext,
         },
-        body: offer.sdp,
+        body: JSON.stringify({ sdp: offer.sdp }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { error?: string } | null;

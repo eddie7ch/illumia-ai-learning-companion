@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { AI_BUDGET_EXCEEDED_MESSAGE, isWithinDailyAiBudget, recordAiUsage } from './_aiBudget.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const MAX_FRAMES = 4;
@@ -139,6 +140,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(429).json({ error: 'Learning diary limit reached. Please try again later.' });
     return;
   }
+  if (!(await isWithinDailyAiBudget(supabase))) {
+    res.status(429).json({ error: AI_BUDGET_EXCEEDED_MESSAGE });
+    return;
+  }
 
   const imageContent = validFrames.map((url) => ({ type: 'image_url' as const, image_url: { url, detail: 'low' } }));
   try {
@@ -179,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     const content = data.choices?.[0]?.message?.content;
     const summary = content ? sanitizeSummary(JSON.parse(content)) : null;
     if (!summary) {
@@ -207,6 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(500).json({ error: 'The summary was generated but could not be saved.' });
       return;
     }
+    await recordAiUsage(supabase, userId, 'summary', data.usage);
     res.status(200).json({ id: inserted.id, createdAt: inserted.created_at, analysis: savedAnalysis });
   } catch {
     res.status(502).json({ error: 'Could not generate the session summary.' });
