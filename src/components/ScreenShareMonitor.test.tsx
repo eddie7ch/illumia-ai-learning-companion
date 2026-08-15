@@ -6,6 +6,20 @@ import { hasMeaningfulVisualChange } from '../utils/visualChange';
 import { deleteScreenRecording, listDiaryEntries, observeScreen, saveSessionSummary, uploadRecordingVideo } from '../services/screenRecordingService';
 import type { Activity } from '../types';
 
+const screenObservationBridge = vi.hoisted(() => ({
+  publishObservation: vi.fn(),
+  setScreenAnalysisActive: vi.fn(),
+  clearObservation: vi.fn(),
+}));
+
+vi.mock('../context/useScreenObservation', () => ({
+  useScreenObservation: () => ({
+    latestObservation: null,
+    isScreenAnalysisActive: false,
+    ...screenObservationBridge,
+  }),
+}));
+
 vi.mock('../services/screenRecordingService', () => ({
   saveSessionSummary: vi.fn(),
   listDiaryEntries: vi.fn(),
@@ -210,6 +224,16 @@ describe('ScreenShareMonitor', () => {
     await user.click(screen.getByRole('button', { name: /analyze now/i }));
 
     expect(await screen.findByText('Why should state be updated with its setter?')).toBeInTheDocument();
+    expect(screenObservationBridge.publishObservation).toHaveBeenCalledWith({
+      id: 'observation-1',
+      observedAt: '2026-08-15T12:00:00.000Z',
+      summary: 'Editing a React state example.',
+      action: 'Adding a useState hook.',
+      activityTitle: activity.title,
+      confidence: 0.9,
+      evidence: 'A component and useState call are visible.',
+    });
+    expect(screenObservationBridge.publishObservation.mock.calls[0][0]).not.toHaveProperty('dataUrl');
     expect(screen.getByText(/possible confusion detected/i)).toBeInTheDocument();
     expect(onConfirmProgress).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /confirm progress/i }));

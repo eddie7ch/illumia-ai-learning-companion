@@ -1,6 +1,8 @@
-import { Mic, MicOff, Phone, PhoneOff, Square } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Eye, EyeOff, Mic, MicOff, Phone, PhoneOff, Square } from 'lucide-react';
 import type { Activity } from '../types';
 import { useRealtimeVoiceSession } from '../hooks/useRealtimeVoiceSession';
+import { useScreenObservation } from '../context/useScreenObservation';
 
 interface RealtimeVoiceTutorProps {
   activities: Activity[];
@@ -21,11 +23,43 @@ function formatElapsed(seconds: number): string {
 
 export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorProps) {
   const voice = useRealtimeVoiceSession();
+  const { latestObservation, isScreenAnalysisActive } = useScreenObservation();
+  const [shareScreenContext, setShareScreenContext] = useState(false);
+  const lastSharedIdRef = useRef<string | null>(null);
   const isActive = voice.phase !== 'idle' && voice.phase !== 'error';
   const context = activities.slice(0, 12).map((activity) =>
     `${activity.title} | topic ${activity.topic} | ${activity.status}` +
     (activity.feedback ? ` | score ${activity.feedback.score}` : ''),
   ).join('\n');
+
+  useEffect(() => {
+    if (!shareScreenContext || !isActive || !isScreenAnalysisActive || !latestObservation) return;
+    if (lastSharedIdRef.current === latestObservation.id) return;
+    const shared = voice.shareScreenObservation([
+      latestObservation.summary,
+      `Visible action: ${latestObservation.action}`,
+      `Evidence: ${latestObservation.evidence}`,
+      latestObservation.activityTitle ? `Matched activity: ${latestObservation.activityTitle}` : '',
+      `Confidence: ${Math.round(latestObservation.confidence * 100)}%`,
+    ].filter(Boolean).join('. '));
+    if (shared) lastSharedIdRef.current = latestObservation.id;
+  }, [shareScreenContext, isActive, isScreenAnalysisActive, latestObservation, voice]);
+
+  useEffect(() => {
+    if (!shareScreenContext || !isActive || isScreenAnalysisActive) return;
+    if (lastSharedIdRef.current) {
+      voice.clearScreenObservationContext();
+      lastSharedIdRef.current = null;
+    }
+  }, [shareScreenContext, isActive, isScreenAnalysisActive, voice]);
+
+  const toggleScreenContext = () => {
+    if (shareScreenContext && isActive && lastSharedIdRef.current) {
+      voice.clearScreenObservationContext();
+      lastSharedIdRef.current = null;
+    }
+    setShareScreenContext((enabled) => !enabled);
+  };
 
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
@@ -60,6 +94,30 @@ export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorPro
             </button>
           </>
         )}
+      </div>
+
+      <div className="mt-3 rounded-md bg-slate-50 p-2 dark:bg-slate-900/50">
+        <label className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={shareScreenContext}
+            onChange={toggleScreenContext}
+            className="mt-0.5 h-4 w-4 accent-indigo-600"
+          />
+          <span>
+            Share sanitized screen observations with the voice tutor. No raw frames or video are sent through this bridge.
+          </span>
+        </label>
+        <p className={`mt-1 flex items-center gap-1 text-xs ${shareScreenContext && isScreenAnalysisActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
+          {shareScreenContext && isScreenAnalysisActive ? <Eye className="h-3.5 w-3.5" aria-hidden="true" /> : <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />}
+          {!shareScreenContext
+            ? 'Screen context sharing is off.'
+            : isScreenAnalysisActive
+              ? latestObservation
+                ? `Linked to observation from ${new Date(latestObservation.observedAt).toLocaleTimeString()}.`
+                : 'Linked; waiting for the first changed-screen observation.'
+              : 'Waiting for active screen analysis.'}
+        </p>
       </div>
 
       {voice.error && <p role="alert" className="mt-2 text-xs text-rose-600 dark:text-rose-400">{voice.error}</p>}

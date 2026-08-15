@@ -34,6 +34,7 @@ import ReviewQueue from './components/ReviewQueue';
 import Drawer from './components/Drawer';
 import { DashboardSkeleton, ChatSkeleton } from './components/Skeleton';
 import { StudySessionProvider } from './context/StudySessionContext';
+import { ScreenObservationProvider } from './context/ScreenObservationProvider';
 
 /** Real, persisted dashboard backed by Supabase: auth, multi-course data, and AI-graded activities. */
 export default function RealApp() {
@@ -42,6 +43,7 @@ export default function RealApp() {
 
   return (
     <StudySessionProvider>
+      <ScreenObservationProvider>
       {auth.isLoading ? (
         <div className="min-h-full bg-slate-50 px-4 py-6 dark:bg-slate-900 sm:px-6">
           <DashboardSkeleton />
@@ -67,6 +69,7 @@ export default function RealApp() {
           onToggleTheme={toggleTheme}
         />
       )}
+      </ScreenObservationProvider>
     </StudySessionProvider>
   );
 }

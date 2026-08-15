@@ -3,18 +3,31 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import RealtimeVoiceTutor from './RealtimeVoiceTutor';
 import { useRealtimeVoiceSession } from '../hooks/useRealtimeVoiceSession';
+import { useScreenObservation } from '../context/useScreenObservation';
 
 vi.mock('../hooks/useRealtimeVoiceSession', () => ({ useRealtimeVoiceSession: vi.fn() }));
+vi.mock('../context/useScreenObservation', () => ({ useScreenObservation: vi.fn() }));
 
 const controls = {
   start: vi.fn(),
   stop: vi.fn(),
   toggleMute: vi.fn(),
   interrupt: vi.fn(),
+  shareScreenObservation: vi.fn(() => true),
+  clearScreenObservationContext: vi.fn(),
 };
 
 describe('RealtimeVoiceTutor', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useScreenObservation).mockReturnValue({
+      latestObservation: null,
+      isScreenAnalysisActive: false,
+      publishObservation: vi.fn(),
+      setScreenAnalysisActive: vi.fn(),
+      clearObservation: vi.fn(),
+    });
+  });
 
   it('starts a context-grounded voice session', async () => {
     vi.mocked(useRealtimeVoiceSession).mockReturnValue({ phase: 'idle', transcripts: [], isMuted: false, elapsedSeconds: 0, error: null, ...controls });
@@ -42,5 +55,42 @@ describe('RealtimeVoiceTutor', () => {
     expect(controls.toggleMute).toHaveBeenCalled();
     expect(controls.interrupt).toHaveBeenCalled();
     expect(controls.stop).toHaveBeenCalled();
+  });
+
+  it('shares each approved observation once and clears visibility when analysis stops', async () => {
+    const observation = {
+      id: 'observation-1',
+      observedAt: '2026-08-15T12:00:00Z',
+      summary: 'The learner is editing a React component.',
+      action: 'Adding a useState hook',
+      evidence: 'useState is visible in the editor',
+      confidence: 0.91,
+      activityTitle: 'State lesson',
+    };
+    vi.mocked(useRealtimeVoiceSession).mockReturnValue({
+      phase: 'listening', transcripts: [], isMuted: false, elapsedSeconds: 12, error: null, ...controls,
+    });
+    vi.mocked(useScreenObservation).mockReturnValue({
+      latestObservation: observation,
+      isScreenAnalysisActive: true,
+      publishObservation: vi.fn(),
+      setScreenAnalysisActive: vi.fn(),
+      clearObservation: vi.fn(),
+    });
+    const user = userEvent.setup();
+    const view = render(<RealtimeVoiceTutor activities={[]} />);
+    await user.click(screen.getByRole('checkbox', { name: /share sanitized screen observations/i }));
+    expect(controls.shareScreenObservation).toHaveBeenCalledWith(expect.stringContaining('Adding a useState hook'));
+    expect(controls.shareScreenObservation).toHaveBeenCalledTimes(1);
+
+    vi.mocked(useScreenObservation).mockReturnValue({
+      latestObservation: observation,
+      isScreenAnalysisActive: false,
+      publishObservation: vi.fn(),
+      setScreenAnalysisActive: vi.fn(),
+      clearObservation: vi.fn(),
+    });
+    view.rerender(<RealtimeVoiceTutor activities={[]} />);
+    expect(controls.clearScreenObservationContext).toHaveBeenCalledTimes(1);
   });
 });

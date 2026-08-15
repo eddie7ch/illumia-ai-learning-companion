@@ -4,6 +4,7 @@ import type { Activity } from '../types';
 import { hasMeaningfulVisualChange } from '../utils/visualChange';
 import FacePresenceMonitor, { type FacePresence } from './FacePresenceMonitor';
 import { useStudySession } from '../context/useStudySession';
+import { useScreenObservation } from '../context/useScreenObservation';
 import {
   deleteScreenRecording,
   listDiaryEntries,
@@ -42,6 +43,7 @@ function preferredMimeType(): string | undefined {
 
 export default function ScreenShareMonitor({ activities, onConfirmProgress }: ScreenShareMonitorProps) {
   const { phase, startSession, setExternalAway } = useStudySession();
+  const { publishObservation, setScreenAnalysisActive, clearObservation } = useScreenObservation();
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [hasConsent, setHasConsent] = useState(false);
   const [liveObservationEnabled, setLiveObservationEnabled] = useState(true);
@@ -89,6 +91,12 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
   }, [questionsEnabled]);
 
   useEffect(() => () => setExternalAway(false), [setExternalAway]);
+
+  useEffect(() => {
+    const active = recordingState === 'recording' && liveObservationEnabled && facePresence !== 'away';
+    setScreenAnalysisActive(active);
+    return () => setScreenAnalysisActive(false);
+  }, [recordingState, liveObservationEnabled, facePresence, setScreenAnalysisActive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +169,15 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
       if (controller.signal.aborted) return;
       observationsRef.current = [...observationsRef.current, observation];
       setObservations(observationsRef.current);
+      publishObservation({
+        id: observation.id,
+        observedAt: observation.observedAt,
+        summary: observation.summary,
+        action: observation.action,
+        evidence: observation.evidence,
+        confidence: observation.confidence,
+        activityTitle: observation.activityTitle,
+      });
     } catch (caughtError) {
       if (!controller.signal.aborted) {
         setObserverError(caughtError instanceof Error ? caughtError.message : 'Live observation failed.');
@@ -184,6 +201,8 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
     observationAbortRef.current = null;
     observationInFlightRef.current = false;
     setIsObserving(false);
+    setScreenAnalysisActive(false);
+    clearObservation();
     durationRef.current = Date.now() - startedAtRef.current;
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -271,6 +290,7 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
     setError(null);
     setObserverError(null);
     setSummaryError(null);
+    clearObservation();
     setAnalysisMode(null);
     setHasSavedToDiary(false);
     setObservations([]);

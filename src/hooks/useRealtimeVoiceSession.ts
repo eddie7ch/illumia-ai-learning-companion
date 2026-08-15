@@ -204,5 +204,52 @@ export function useRealtimeVoiceSession() {
     setPhase('listening');
   }, []);
 
-  return { phase, transcripts, isMuted, elapsedSeconds, error, start, stop, toggleMute, interrupt };
+  const shareScreenObservation = useCallback((observation: string): boolean => {
+    const channel = channelRef.current;
+    if (!channel || channel.readyState !== 'open') return false;
+    const sanitized = observation.replace(/[\r\n]+/g, ' ').trim().slice(0, 1200);
+    if (!sanitized) return false;
+    channel.send(JSON.stringify({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'system',
+        content: [{
+          type: 'input_text',
+          text: `Learner-approved screen observation (sampled and may be delayed): ${sanitized}`,
+        }],
+      },
+    }));
+    return true;
+  }, []);
+
+  const clearScreenObservationContext = useCallback(() => {
+    const channel = channelRef.current;
+    if (!channel || channel.readyState !== 'open') return;
+    channel.send(JSON.stringify({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'system',
+        content: [{
+          type: 'input_text',
+          text: 'Screen observation sharing is now inactive. Treat earlier screen observations as historical and do not claim current screen visibility.',
+        }],
+      },
+    }));
+  }, []);
+
+  return {
+    phase,
+    transcripts,
+    isMuted,
+    elapsedSeconds,
+    error,
+    start,
+    stop,
+    toggleMute,
+    interrupt,
+    shareScreenObservation,
+    clearScreenObservationContext,
+  };
 }

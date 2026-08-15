@@ -80,6 +80,13 @@ describe('useRealtimeVoiceSession', () => {
     expect(peer.channel.send).toHaveBeenCalledWith(JSON.stringify({ type: 'response.cancel' }));
     expect(peer.channel.send).toHaveBeenCalledWith(JSON.stringify({ type: 'output_audio_buffer.clear' }));
 
+    act(() => {
+      expect(result.current.shareScreenObservation('Editing useState on screen')).toBe(true);
+      result.current.clearScreenObservationContext();
+    });
+    expect(peer.channel.send).toHaveBeenCalledWith(expect.stringContaining('Learner-approved screen observation'));
+    expect(peer.channel.send).toHaveBeenCalledWith(expect.stringContaining('Screen observation sharing is now inactive'));
+
     unmount();
     expect(stopTrack).toHaveBeenCalled();
     expect(peer.close).toHaveBeenCalled();
