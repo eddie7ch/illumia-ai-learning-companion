@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowLeft, KeyRound, ListChecks, Loader2, Maximize2, Minimize2, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, KeyRound, ListChecks, Loader2, Maximize2, Mic, MicOff, Minimize2, Send, Sparkles } from 'lucide-react';
 import type { Activity, AiFeedback, ChatMessage, QuizQuestion } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import QuizRunner from './QuizRunner';
@@ -11,6 +11,28 @@ const QUICK_PROMPTS = [
   'How can I avoid unnecessary re-renders?',
   'What should I practice next?',
 ];
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+function getSpeechRecognition(): SpeechRecognitionConstructor | null {
+  const speechWindow = window as typeof window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
 
 interface AiTutorChatProps {
   messages: ChatMessage[];
@@ -45,6 +67,8 @@ export default function AiTutorChat({
   const [draft, setDraft] = useState('');
   const [showKeyPanel, setShowKeyPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   // `attempt` increments on every (re)start so retaking the same quiz always remounts QuizRunner
   // with fresh state, instead of silently no-op'ing because the activityId hasn't changed.
   const [quizSession, setQuizSession] = useState<{ activityId: string; attempt: number } | null>(null);
@@ -52,6 +76,7 @@ export default function AiTutorChat({
   const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const quizAttemptRef = useRef(0);
   const activitiesRef = useRef(activities);
   activitiesRef.current = activities;
@@ -121,6 +146,8 @@ export default function AiTutorChat({
     };
   }, [isFullscreen]);
 
+  useEffect(() => () => speechRecognitionRef.current?.abort(), []);
+
   const isLive = apiKey.trim().length > 0 || isSupabaseConfigured;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -134,6 +161,37 @@ export default function AiTutorChat({
   const handleQuickPrompt = (prompt: string) => {
     if (isThinking) return;
     setDraft(prompt);
+  };
+
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      speechRecognitionRef.current?.stop();
+      return;
+    }
+    const SpeechRecognition = getSpeechRecognition();
+    if (!SpeechRecognition) {
+      setVoiceError('Voice input is not supported in this browser. Use Chrome or Edge.');
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = navigator.language || 'en-US';
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) setDraft((current) => [current.trim(), transcript].filter(Boolean).join(' '));
+    };
+    recognition.onerror = (event) => {
+      if (event.error !== 'aborted') setVoiceError(`Voice input failed: ${event.error}.`);
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      speechRecognitionRef.current = null;
+    };
+    speechRecognitionRef.current = recognition;
+    setVoiceError(null);
+    setIsListening(true);
+    recognition.start();
   };
 
   const handleQuizSubmit = (activityId: string, result: QuizResult) => {
@@ -339,6 +397,16 @@ export default function AiTutorChat({
                 className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
               />
               <button
+                type="button"
+                onClick={toggleVoiceInput}
+                aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                aria-pressed={isListening}
+                disabled={isThinking}
+                className="flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300"
+              >
+                {isListening ? <MicOff className="h-4 w-4" aria-hidden="true" /> : <Mic className="h-4 w-4" aria-hidden="true" />}
+              </button>
+              <button
                 type="submit"
                 disabled={isThinking}
                 aria-label="Send"
@@ -347,6 +415,7 @@ export default function AiTutorChat({
                 <Send className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
+            {voiceError && <p role="status" className="text-xs text-amber-700 dark:text-amber-400">{voiceError}</p>}
           </form>
         </>
       )}

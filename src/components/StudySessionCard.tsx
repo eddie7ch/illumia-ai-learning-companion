@@ -1,6 +1,14 @@
 import { Play, Square } from 'lucide-react';
 import { useStudySession } from '../context/useStudySession';
 import { formatDurationMs } from '../utils/duration';
+import ScreenShareMonitor from './ScreenShareMonitor';
+import VoiceNoteRecorder from './VoiceNoteRecorder';
+import type { Activity } from '../types';
+
+interface StudySessionCardProps {
+  activities: Activity[];
+  onConfirmProgress?: (activityId: string, additionalMinutes: number) => void | Promise<void>;
+}
 
 function formatElapsed(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -21,7 +29,7 @@ function statusClasses(kind: 'active' | 'idle' | 'away'): string {
   return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400';
 }
 
-export default function StudySessionCard() {
+export default function StudySessionCard({ activities, onConfirmProgress }: StudySessionCardProps) {
   const { phase, elapsedMs, currentLabel, currentKind, report, startSession, endSession } = useStudySession();
 
   return (
@@ -101,6 +109,9 @@ export default function StudySessionCard() {
           </button>
         </div>
       )}
+
+      <ScreenShareMonitor activities={activities} onConfirmProgress={onConfirmProgress} />
+      <VoiceNoteRecorder />
     </section>
   );
 }

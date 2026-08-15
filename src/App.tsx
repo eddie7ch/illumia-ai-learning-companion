@@ -76,7 +76,7 @@ function App() {
               <DashboardSkeleton />
             ) : (
               <>
-                <StudySessionCard />
+                <StudySessionCard activities={activities} onConfirmProgress={logTimeSpent} />
                 <ProgressOverview profile={profile} />
                 <ProgressTrend activities={activities} />
                 <ActivityCalendar activities={activities} />

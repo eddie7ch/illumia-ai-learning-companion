@@ -12,6 +12,7 @@ export interface StudySessionApi {
   startSession: () => void;
   endSession: () => void;
   setFocusLabel: (label: string | null) => void;
+  setExternalAway: (away: boolean) => void;
 }
 
 const noop = () => {};
@@ -26,6 +27,7 @@ export const defaultStudySessionApi: StudySessionApi = {
   startSession: noop,
   endSession: noop,
   setFocusLabel: noop,
+  setExternalAway: noop,
 };
 
 export const StudySessionContext = createContext<StudySessionApi>(defaultStudySessionApi);

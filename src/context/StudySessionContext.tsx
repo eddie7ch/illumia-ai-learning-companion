@@ -17,6 +17,7 @@ export function StudySessionProvider({ children }: { children: ReactNode }) {
   const sessionStartedAtRef = useRef<number | null>(null);
   const lastActivityAtRef = useRef(Date.now());
   const labelRef = useRef(DEFAULT_LABEL);
+  const externalAwayRef = useRef(false);
 
   const sealSegment = useCallback((endedAt: number) => {
     const current = currentRef.current;
@@ -75,6 +76,10 @@ export function StudySessionProvider({ children }: { children: ReactNode }) {
     labelRef.current = label ?? DEFAULT_LABEL;
   }, []);
 
+  const setExternalAway = useCallback((away: boolean) => {
+    externalAwayRef.current = away;
+  }, []);
+
   // Track user activity for idle detection while a session is active.
   useEffect(() => {
     if (phase !== 'active') return;
@@ -91,7 +96,7 @@ export function StudySessionProvider({ children }: { children: ReactNode }) {
     if (phase !== 'active') return;
     const interval = window.setInterval(() => {
       const now = Date.now();
-      const desiredKind: SessionActivityKind = document.hidden
+      const desiredKind: SessionActivityKind = document.hidden || externalAwayRef.current
         ? 'away'
         : now - lastActivityAtRef.current > IDLE_THRESHOLD_MS
           ? 'idle'
@@ -122,6 +127,7 @@ export function StudySessionProvider({ children }: { children: ReactNode }) {
     startSession,
     endSession,
     setFocusLabel,
+    setExternalAway,
   };
 
   return <StudySessionContext.Provider value={value}>{children}</StudySessionContext.Provider>;

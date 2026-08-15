@@ -117,3 +117,72 @@ $$;
 
 revoke all on function chat_events_daily_count() from public;
 grant execute on function chat_events_daily_count() to authenticated;
+
+-- Private screen recordings created only after explicit learner consent. storage_path is null
+-- for "learning diary" entries, which save only a short AI summary and never the video itself.
+create table if not exists screen_recordings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  storage_path text unique,
+  duration_seconds integer not null default 0,
+  size_bytes bigint not null default 0,
+  mime_type text not null default 'video/webm',
+  status text not null default 'uploaded' check (status in ('uploaded', 'analyzed', 'summary_only')),
+  consent_given boolean not null default false,
+  analysis jsonb,
+  analyzed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- Safe to re-run: relaxes storage_path/status so existing databases accept diary-only rows
+-- (a saved AI summary with no uploaded video) alongside the original video-upload rows.
+alter table screen_recordings alter column storage_path drop not null;
+alter table screen_recordings drop constraint if exists screen_recordings_status_check;
+alter table screen_recordings add constraint screen_recordings_status_check
+  check (status in ('uploaded', 'analyzed', 'summary_only'));
+
+create index if not exists screen_recordings_user_id_created_at_idx
+  on screen_recordings (user_id, created_at desc);
+
+alter table screen_recordings enable row level security;
+
+drop policy if exists "screen_recordings: owner all" on screen_recordings;
+create policy "screen_recordings: owner all" on screen_recordings for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id and consent_given = true);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('screen-recordings', 'screen-recordings', false, 104857600, array['video/webm'])
+on conflict (id) do update set
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "screen recordings: owner read" on storage.objects;
+create policy "screen recordings: owner read" on storage.objects for select to authenticated
+  using (bucket_id = 'screen-recordings' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "screen recordings: owner insert" on storage.objects;
+create policy "screen recordings: owner insert" on storage.objects for insert to authenticated
+  with check (bucket_id = 'screen-recordings' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "screen recordings: owner delete" on storage.objects;
+create policy "screen recordings: owner delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'screen-recordings' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Rate-limit events for sampled real-time screen observations.
+create table if not exists screen_observation_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists screen_observation_events_user_id_created_at_idx
+  on screen_observation_events (user_id, created_at);
+
+alter table screen_observation_events enable row level security;
+
+drop policy if exists "screen_observation_events: owner all" on screen_observation_events;
+create policy "screen_observation_events: owner all" on screen_observation_events for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

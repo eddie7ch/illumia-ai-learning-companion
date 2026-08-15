@@ -337,16 +337,16 @@ course sharing/leaderboards, and richer progress analytics beyond the calendar/t
 - **Token streaming (SSE):** in a production implementation, `aiService.ts` would consume a
   Server-Sent Events (SSE) `ReadableStream` from a backend API rather than resolving a single
   Promise, rendering AI tutor responses token-by-token in real time instead of all at once.
-- **Automatic live progress tracking (explored, not built):** we discussed using screen
-  sharing/screen recording (the browser's `getDisplayMedia` API) so the app could automatically
-  detect what a learner is working on and for how long, instead of relying on manually marking
-  activities complete. We deliberately did not build this for the case study because: (1) it
-  requires a real permission prompt every session and only sees whatever tab/window/screen the
-  user chooses to share — it cannot observe other apps or tabs, so it's not true "screen
-  monitoring"; (2) turning captured video into meaningful activity data needs OCR/computer-vision
-  analysis, which is unreliable and a large engineering effort on its own; and (3) it raises real
-  privacy concerns for a portfolio prototype (consent, no recording/storage of screen content,
-  clear stop controls). A safer, privacy-preserving version of the same idea — an in-app "Study
-  Session Tracker" using only Page Visibility/focus and input events (no video, no permissions,
-  nothing ever leaves the browser) to build a time-on-activity timeline and idle/active
-  breakdown — is a promising future direction we may build next.
+- **Automatic live progress tracking ("Screen learning observer" + learning diary):** the app can
+  optionally use screen sharing (the browser's `getDisplayMedia` API, explicit consent required)
+  to sample a reduced frame every 12 seconds while recording, sending it to OpenAI for a live,
+  privacy-filtered observation (visible action, evidence, an optional clarifying question, and a
+  suggested activity/progress update the learner must confirm — nothing updates automatically).
+  When the learner stops, a short AI summary of what was learned is generated from a few sampled
+  frames and saved to a persistent "learning diary" (Supabase `screen_recordings` table) — the
+  recorded video itself is never uploaded or stored anywhere, only the text summary, to avoid
+  unnecessary storage cost/privacy exposure. A "Download locally" link still lets the learner keep
+  the raw video on their own device if they want it, entirely client-side. A companion feature — an
+  in-app "Study Session Tracker" using only Page Visibility/focus and input events (no video, no
+  permissions, nothing ever leaves the browser) — is also built, giving a time-on-activity timeline
+  and idle/active breakdown even for learners who never turn on screen sharing.

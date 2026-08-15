@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AiTutorChat from './AiTutorChat';
 import type { Activity, ChatMessage, QuizQuestion } from '../types';
@@ -43,6 +43,8 @@ function renderChat(overrides: Partial<Parameters<typeof AiTutorChat>[0]> = {}) 
 }
 
 describe('AiTutorChat', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('renders the initial welcome message', () => {
     renderChat();
     expect(screen.getByText('Hi! Ask me anything.')).toBeInTheDocument();
@@ -58,6 +60,34 @@ describe('AiTutorChat', () => {
 
     expect(onSend).toHaveBeenCalledWith('Why is my React component re-rendering?');
     expect(input).toHaveValue('');
+  });
+
+  it('transcribes a spoken tutor instruction into the editable question field', async () => {
+    const user = userEvent.setup();
+    class MockSpeechRecognition {
+      static latest: MockSpeechRecognition | null = null;
+      continuous = false;
+      interimResults = false;
+      lang = '';
+      onresult: ((event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null = null;
+      onerror = null;
+      onend: (() => void) | null = null;
+      constructor() { MockSpeechRecognition.latest = this; }
+      start() {}
+      stop() { this.onend?.(); }
+      abort() {}
+    }
+    vi.stubGlobal('SpeechRecognition', MockSpeechRecognition);
+    renderChat();
+
+    await user.click(screen.getByRole('button', { name: /start voice input/i }));
+    act(() => {
+      MockSpeechRecognition.latest?.onresult?.({ results: [{ 0: { transcript: 'Explain this React error' } }] });
+      MockSpeechRecognition.latest?.onend?.();
+    });
+
+    expect(screen.getByLabelText('Ask a question')).toHaveValue('Explain this React error');
+    expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument();
   });
 
   it('ignores empty submissions', async () => {

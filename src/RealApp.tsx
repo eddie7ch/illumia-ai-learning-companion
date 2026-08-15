@@ -210,7 +210,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
                 <DashboardSkeleton />
               ) : (
                 <>
-                  <StudySessionCard />
+                  <StudySessionCard activities={activities} onConfirmProgress={logTimeSpent} />
                   <ProgressOverview
                     profile={{ name: userEmail ?? 'Learner', track: activeCourse!.title, overallProgress, strengths, improvementAreas, recommendation }}
                   />
