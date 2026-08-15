@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateLearningPlan } from './learningPlan';
-import type { Activity, LearnerProfile } from '../types';
+import type { Activity, LearnerProfile, TopicMastery } from '../types';
 
 const profile: LearnerProfile = {
   name: 'Jordan Lee',
@@ -64,5 +64,17 @@ describe('generateLearningPlan', () => {
     const steps = generateLearningPlan(noInProgressProfile, noInProgress);
     const occurrences = steps.filter((step) => step.title === 'Memoization Challenge');
     expect(occurrences).toHaveLength(1);
+  });
+
+  it('puts due spaced reviews first and prioritizes the weakest topic', () => {
+    const masteries: TopicMastery[] = [
+      { topic: 'Testing', masteryScore: 35, diagnosticScore: 40, evidenceCount: 1, lastPracticedAt: '2026-08-01T00:00:00Z', nextReviewAt: '2026-08-02T00:00:00Z', reviewIntervalDays: 1, easeFactor: 2.5, repetitions: 0 },
+      { topic: 'Performance', masteryScore: 80, evidenceCount: 2, lastPracticedAt: '2026-08-10T00:00:00Z', nextReviewAt: '2026-09-01T00:00:00Z', reviewIntervalDays: 7, easeFactor: 2.5, repetitions: 2 },
+    ];
+    const steps = generateLearningPlan(profile, activities, masteries, new Date('2026-08-15T00:00:00Z'));
+    expect(steps[0].title).toBe('Review Testing');
+    expect(steps.findIndex((step) => step.title === 'Testing Fundamentals Quiz')).toBeLessThan(
+      steps.findIndex((step) => step.title === 'Memoization Challenge'),
+    );
   });
 });

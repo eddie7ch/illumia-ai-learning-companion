@@ -12,6 +12,7 @@ import {
   buildProgressContext,
 } from './data/deriveInsights';
 import { generateLearningPlan } from './data/learningPlan';
+import { dueTopicReviews } from './data/topicMastery';
 import type { ChatMessage } from './types';
 import AuthPanel from './components/AuthPanel';
 import ResetPasswordPanel from './components/ResetPasswordPanel';
@@ -27,6 +28,9 @@ import AiTutorChat from './components/AiTutorChat';
 import ThemeToggle from './components/ThemeToggle';
 import LiveClock from './components/LiveClock';
 import StudySessionCard from './components/StudySessionCard';
+import DiagnosticAssessment from './components/DiagnosticAssessment';
+import TopicMasteryOverview from './components/TopicMasteryOverview';
+import ReviewQueue from './components/ReviewQueue';
 import Drawer from './components/Drawer';
 import { DashboardSkeleton, ChatSkeleton } from './components/Skeleton';
 import { StudySessionProvider } from './context/StudySessionContext';
@@ -81,6 +85,7 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
     courses,
     activeCourse,
     activities,
+    topicMasteries,
     isLoading,
     error,
     selectCourse,
@@ -90,6 +95,10 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
     completeQuiz,
     logTimeSpent,
     requestQuiz,
+    requestCourseDiagnostic,
+    completeDiagnostic,
+    requestReview,
+    completeReview,
   } = useCourseData(userId, userEmail, isGuest);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -150,9 +159,12 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
   const overallProgress = calculateOverallProgress(activities);
   const { strengths, improvementAreas } = deriveStrengthsAndImprovements(activities);
   const recommendation = deriveRecommendation(activities);
+  const topics = Array.from(new Set(activities.map((activity) => activity.topic)));
+  const dueReviews = dueTopicReviews(topicMasteries);
   const learningPlan = generateLearningPlan(
     { name: userEmail ?? 'Learner', track: activeCourse?.title ?? '', overallProgress, strengths, improvementAreas, recommendation },
     activities,
+    topicMasteries,
   );
 
   return (
@@ -214,10 +226,18 @@ function SignedInDashboard({ userId, userEmail, isGuest, onSignOut, theme, onTog
                   <ProgressOverview
                     profile={{ name: userEmail ?? 'Learner', track: activeCourse!.title, overallProgress, strengths, improvementAreas, recommendation }}
                   />
+                  <DiagnosticAssessment
+                    topics={topics}
+                    completed={topicMasteries.some((item) => item.diagnosticScore !== undefined)}
+                    onRequest={requestCourseDiagnostic}
+                    onComplete={completeDiagnostic}
+                  />
+                  <TopicMasteryOverview topics={topics} masteries={topicMasteries} />
                   <ProgressTrend activities={activities} />
                   <ActivityCalendar activities={activities} />
                   <StrengthsAndImprovements strengths={strengths} improvementAreas={improvementAreas} />
                   <RecommendationCard recommendation={recommendation} />
+                  <ReviewQueue due={dueReviews} onRequestReview={requestReview} onCompleteReview={completeReview} />
                   <LearningPlan steps={learningPlan} />
                   <ActivityList
                     activities={activities}

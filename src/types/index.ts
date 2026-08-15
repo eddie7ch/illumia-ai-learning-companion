@@ -55,6 +55,29 @@ export interface LearningPlanStep {
   description: string;
 }
 
+export type MasteryLevel = 'New' | 'Developing' | 'Proficient' | 'Strong' | 'Mastered';
+
+export interface TopicMastery {
+  topic: string;
+  masteryScore: number;
+  diagnosticScore?: number;
+  evidenceCount: number;
+  lastPracticedAt: string;
+  nextReviewAt: string;
+  reviewIntervalDays: number;
+  easeFactor: number;
+  repetitions: number;
+}
+
+export interface DiagnosticQuestion extends QuizQuestion {
+  topic: string;
+}
+
+export interface DiagnosticTopicResult {
+  topic: string;
+  score: number;
+}
+
 export type SessionActivityKind = 'active' | 'idle' | 'away';
 
 export interface SessionSegment {

@@ -30,9 +30,16 @@ export interface DiaryEntry {
   createdAt: string;
   durationSeconds: number;
   analysis: ScreenRecordingAnalysis;
+  hasStoredVideo: boolean;
+}
+
+export interface UploadedVideo {
+  storagePath: string;
+  sizeBytes: number;
 }
 
 const BUCKET = 'screen-recordings';
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 async function requireSession() {
   if (!supabase) throw new Error('Cloud saving requires Supabase configuration.');
@@ -41,15 +48,27 @@ async function requireSession() {
   return { client: supabase, session: data.session };
 }
 
+/** Uploads the full recorded video to private storage, for learners who opt into keeping a copy. */
+export async function uploadRecordingVideo(video: Blob): Promise<UploadedVideo> {
+  if (video.size > MAX_UPLOAD_BYTES) throw new Error('Recording is too large to upload (max 100 MB).');
+  const { client, session } = await requireSession();
+  const storagePath = `${session.user.id}/${crypto.randomUUID()}.webm`;
+  const { error } = await client.storage.from(BUCKET).upload(storagePath, video, { contentType: 'video/webm' });
+  if (error) throw error;
+  return { storagePath, sizeBytes: video.size };
+}
+
 /**
  * Summarizes a finished screen-share session from a few sampled frames and the live observation
- * timeline, and saves only that short text summary to the learner's diary. The video itself is
- * never uploaded or stored.
+ * timeline, and saves that short text summary to the learner's diary. Pass `video` only when the
+ * learner opted to also upload the full recording (via uploadRecordingVideo) - otherwise the video
+ * itself is never uploaded or stored.
  */
 export async function saveSessionSummary(
   durationSeconds: number,
   frames: string[],
   observations: ScreenObservation[] = [],
+  video?: UploadedVideo,
 ): Promise<DiaryEntry> {
   if (frames.length === 0) throw new Error('No preview frames were captured to summarize.');
   const { session } = await requireSession();
@@ -59,7 +78,13 @@ export async function saveSessionSummary(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ durationSeconds, frames: frames.slice(0, 4), observations: observations.slice(-50) }),
+    body: JSON.stringify({
+      durationSeconds,
+      frames: frames.slice(0, 4),
+      observations: observations.slice(-50),
+      storagePath: video?.storagePath,
+      sizeBytes: video?.sizeBytes,
+    }),
   });
   const result = (await response.json().catch(() => null)) as
     | { id?: string; createdAt?: string; analysis?: ScreenRecordingAnalysis; error?: string }
@@ -72,6 +97,7 @@ export async function saveSessionSummary(
     createdAt: result.createdAt || new Date().toISOString(),
     durationSeconds,
     analysis: result.analysis,
+    hasStoredVideo: Boolean(video),
   };
 }
 
@@ -80,7 +106,7 @@ export async function listDiaryEntries(): Promise<DiaryEntry[]> {
   const { client, session } = await requireSession();
   const { data, error } = await client
     .from('screen_recordings')
-    .select('id, created_at, duration_seconds, analysis')
+    .select('id, created_at, duration_seconds, analysis, storage_path')
     .eq('user_id', session.user.id)
     .not('analysis', 'is', null)
     .order('created_at', { ascending: false })
@@ -91,6 +117,7 @@ export async function listDiaryEntries(): Promise<DiaryEntry[]> {
     createdAt: row.created_at as string,
     durationSeconds: row.duration_seconds as number,
     analysis: row.analysis as ScreenRecordingAnalysis,
+    hasStoredVideo: Boolean(row.storage_path),
   }));
 }
 

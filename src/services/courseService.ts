@@ -1,7 +1,8 @@
 import { supabase } from './supabaseClient';
-import type { Activity, ActivityType, QuizQuestion } from '../types';
-import type { ActivityRow, CourseRow } from '../types/database';
+import type { Activity, ActivityType, DiagnosticQuestion, QuizQuestion, TopicMastery } from '../types';
+import type { ActivityRow, CourseRow, TopicMasteryRow } from '../types/database';
 import type { CoursePreset } from '../data/coursePresets';
+import { createTopicMastery, updateTopicMastery } from '../data/topicMastery';
 
 export interface Course {
   id: string;
@@ -33,6 +34,20 @@ function rowToCourse(row: CourseRow): Course {
   return { id: row.id, title: row.title, isCustom: row.is_custom };
 }
 
+function rowToTopicMastery(row: TopicMasteryRow): TopicMastery {
+  return {
+    topic: row.topic,
+    masteryScore: row.mastery_score,
+    diagnosticScore: row.diagnostic_score ?? undefined,
+    evidenceCount: row.evidence_count,
+    lastPracticedAt: row.last_practiced_at,
+    nextReviewAt: row.next_review_at,
+    reviewIntervalDays: row.review_interval_days,
+    easeFactor: Number(row.ease_factor),
+    repetitions: row.repetitions,
+  };
+}
+
 export async function ensureProfile(userId: string, name: string): Promise<void> {
   const client = requireClient();
   const { error } = await client.from('profiles').upsert({ id: userId, name }, { onConflict: 'id', ignoreDuplicates: true });
@@ -60,6 +75,60 @@ export async function fetchActivities(courseId: string): Promise<Activity[]> {
     .order('created_at', { ascending: true });
   if (error) throw error;
   return (data ?? []).map(rowToActivity);
+}
+
+export async function fetchTopicMasteries(courseId: string): Promise<TopicMastery[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('topic_mastery_records')
+    .select('*')
+    .eq('course_id', courseId)
+    .order('mastery_score', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => rowToTopicMastery(row as TopicMasteryRow));
+}
+
+export async function saveTopicEvidence(
+  userId: string,
+  courseId: string,
+  topic: string,
+  score: number,
+  isDiagnostic = false,
+): Promise<TopicMastery> {
+  const client = requireClient();
+  const { data: existing } = await client
+    .from('topic_mastery_records')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('course_id', courseId)
+    .eq('topic', topic)
+    .maybeSingle();
+  const current = existing ? rowToTopicMastery(existing as TopicMasteryRow) : undefined;
+  const calculated = current
+    ? updateTopicMastery(current, topic, score)
+    : { ...createTopicMastery(topic, score), diagnosticScore: isDiagnostic ? Math.round(score) : undefined };
+  if (isDiagnostic) calculated.diagnosticScore = Math.max(0, Math.min(100, Math.round(score)));
+
+  const { data, error } = await client
+    .from('topic_mastery_records')
+    .upsert({
+      user_id: userId,
+      course_id: courseId,
+      topic,
+      mastery_score: calculated.masteryScore,
+      diagnostic_score: calculated.diagnosticScore ?? null,
+      evidence_count: calculated.evidenceCount,
+      last_practiced_at: calculated.lastPracticedAt,
+      next_review_at: calculated.nextReviewAt,
+      review_interval_days: calculated.reviewIntervalDays,
+      ease_factor: calculated.easeFactor,
+      repetitions: calculated.repetitions,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,course_id,topic' })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToTopicMastery(data as TopicMasteryRow);
 }
 
 export async function createCourseFromPreset(userId: string, preset: CoursePreset): Promise<Course> {
@@ -336,4 +405,19 @@ export async function requestLiveQuiz(title: string, topic: string, courseTitle?
   }
   const result = await response.json();
   return result.questions as QuizQuestion[];
+}
+
+export async function requestDiagnostic(courseTitle: string, topics: string[]): Promise<DiagnosticQuestion[]> {
+  const client = requireClient();
+  const { data } = await client.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('You must be signed in to start a diagnostic.');
+  const response = await fetch('/api/generate-diagnostic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ courseTitle, topics: topics.slice(0, 6) }),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(result?.error || 'Diagnostic generation failed.');
+  return result.questions as DiagnosticQuestion[];
 }

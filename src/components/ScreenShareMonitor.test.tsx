@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ScreenShareMonitor from './ScreenShareMonitor';
 import { hasMeaningfulVisualChange } from '../utils/visualChange';
-import { deleteScreenRecording, listDiaryEntries, observeScreen, saveSessionSummary } from '../services/screenRecordingService';
+import { deleteScreenRecording, listDiaryEntries, observeScreen, saveSessionSummary, uploadRecordingVideo } from '../services/screenRecordingService';
 import type { Activity } from '../types';
 
 vi.mock('../services/screenRecordingService', () => ({
@@ -11,6 +11,7 @@ vi.mock('../services/screenRecordingService', () => ({
   listDiaryEntries: vi.fn(),
   deleteScreenRecording: vi.fn(),
   observeScreen: vi.fn(),
+  uploadRecordingVideo: vi.fn(),
 }));
 
 const activity: Activity = {
@@ -52,11 +53,13 @@ describe('ScreenShareMonitor', () => {
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:recording'), revokeObjectURL: vi.fn() });
     vi.mocked(listDiaryEntries).mockResolvedValue([]);
     vi.mocked(deleteScreenRecording).mockResolvedValue();
+    vi.mocked(uploadRecordingVideo).mockResolvedValue({ storagePath: 'user-1/recording.webm', sizeBytes: 12345 });
     vi.mocked(saveSessionSummary).mockResolvedValue({
       id: 'diary-1',
       createdAt: '2026-01-01T00:00:00.000Z',
       durationSeconds: 0,
       analysis: { summary: 'Auto-saved summary', observedWork: [], suggestedActivity: null, privacyNotes: [] },
+      hasStoredVideo: false,
     });
   });
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -115,7 +118,7 @@ describe('ScreenShareMonitor', () => {
     expect(exitPictureInPicture).toHaveBeenCalledOnce();
   });
 
-  it('automatically saves a learning-diary summary from sampled frames after stopping, without uploading the video', async () => {
+  it('saves a local-only learning-diary summary from sampled frames when analyzing without uploading the video', async () => {
     const user = userEvent.setup();
     mockDisplayMedia();
     vi.mocked(saveSessionSummary).mockResolvedValue({
@@ -123,6 +126,7 @@ describe('ScreenShareMonitor', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       durationSeconds: 0,
       analysis: { summary: 'The learner is practicing React state.', observedWork: ['Editing a React component'], suggestedActivity: 'State and Props Deep Dive', privacyNotes: [] },
+      hasStoredVideo: false,
     });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,frame');
@@ -133,10 +137,43 @@ describe('ScreenShareMonitor', () => {
     Object.defineProperties(preview, { readyState: { configurable: true, value: 2 }, videoWidth: { configurable: true, value: 1280 }, videoHeight: { configurable: true, value: 720 } });
     fireEvent.loadedData(preview);
     await user.click(screen.getByRole('button', { name: /stop recording/i }));
+    await screen.findByText(/recording ready/i);
+    await user.click(screen.getByRole('button', { name: /analyze \(video stays local\)/i }));
     await waitFor(() => expect(saveSessionSummary).toHaveBeenCalled());
-    expect(saveSessionSummary).toHaveBeenCalledWith(expect.any(Number), ['data:image/jpeg;base64,frame', 'data:image/jpeg;base64,frame'], []);
+    expect(saveSessionSummary).toHaveBeenCalledWith(expect.any(Number), ['data:image/jpeg;base64,frame', 'data:image/jpeg;base64,frame'], [], undefined);
+    expect(uploadRecordingVideo).not.toHaveBeenCalled();
     expect(await screen.findByText('The learner is practicing React state.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /upload and save session/i })).not.toBeInTheDocument();
+  });
+
+  it('uploads the full video before saving a diary summary when the learner chooses the upload option', async () => {
+    const user = userEvent.setup();
+    mockDisplayMedia();
+    vi.mocked(saveSessionSummary).mockResolvedValue({
+      id: 'diary-4',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      durationSeconds: 0,
+      analysis: { summary: 'Uploaded and analyzed session.', observedWork: [], suggestedActivity: null, privacyNotes: [] },
+      hasStoredVideo: true,
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,frame');
+    render(<ScreenShareMonitor activities={[activity]} />);
+    await user.click(screen.getByRole('checkbox', { name: /i consent/i }));
+    await user.click(screen.getByRole('button', { name: /choose screen and record/i }));
+    const preview = screen.getByLabelText('Shared screen preview');
+    Object.defineProperties(preview, { readyState: { configurable: true, value: 2 }, videoWidth: { configurable: true, value: 1280 }, videoHeight: { configurable: true, value: 720 } });
+    fireEvent.loadedData(preview);
+    await user.click(screen.getByRole('button', { name: /stop recording/i }));
+    await screen.findByText(/recording ready/i);
+    await user.click(screen.getByRole('button', { name: /analyze \+ upload full video/i }));
+    await waitFor(() => expect(uploadRecordingVideo).toHaveBeenCalledOnce());
+    await waitFor(() => expect(saveSessionSummary).toHaveBeenCalledWith(
+      expect.any(Number),
+      ['data:image/jpeg;base64,frame', 'data:image/jpeg;base64,frame'],
+      [],
+      { storagePath: 'user-1/recording.webm', sizeBytes: 12345 },
+    ));
+    expect(await screen.findByText('Uploaded and analyzed session.')).toBeInTheDocument();
   });
 
   it('shows live questions and updates progress only after confirmation', async () => {
@@ -226,6 +263,7 @@ describe('ScreenShareMonitor', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
         durationSeconds: 90,
         analysis: { summary: 'Previously saved summary', observedWork: [], suggestedActivity: null, privacyNotes: [] },
+        hasStoredVideo: false,
       },
     ]);
     render(<ScreenShareMonitor activities={[activity]} />);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Brain, Check, Download, MonitorUp, Pause, PictureInPicture2, Play, Square, Trash2 } from 'lucide-react';
+import { AlertTriangle, Brain, Check, Download, MonitorUp, Pause, PictureInPicture2, Play, Square, Trash2, Upload } from 'lucide-react';
 import type { Activity } from '../types';
 import { hasMeaningfulVisualChange } from '../utils/visualChange';
 import FacePresenceMonitor, { type FacePresence } from './FacePresenceMonitor';
@@ -9,6 +9,7 @@ import {
   listDiaryEntries,
   observeScreen,
   saveSessionSummary,
+  uploadRecordingVideo,
   type DiaryEntry,
   type ScreenObservation,
 } from '../services/screenRecordingService';
@@ -58,6 +59,8 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [isLoadingDiary, setIsLoadingDiary] = useState(true);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<'local' | 'upload' | null>(null);
+  const [hasSavedToDiary, setHasSavedToDiary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [observerError, setObserverError] = useState<string | null>(null);
@@ -268,6 +271,8 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
     setError(null);
     setObserverError(null);
     setSummaryError(null);
+    setAnalysisMode(null);
+    setHasSavedToDiary(false);
     setObservations([]);
     observationsRef.current = [];
     setConfirmedObservationIds(new Set());
@@ -297,7 +302,6 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
         setElapsedMs(durationRef.current);
         setRecordingState('ready');
         stoppingRef.current = false;
-        void saveToLearningDiary();
       }, { once: true });
 
       streamRef.current = stream;
@@ -333,23 +337,28 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
   };
 
   /**
-   * Saves a short AI summary of what was learned to the diary. Only the sampled preview frames
-   * and the live observation timeline are sent — the recorded video itself is never uploaded.
+   * Saves a short AI summary of what was learned to the diary, from the sampled preview frames and
+   * the live observation timeline. In 'upload' mode the full recording is also uploaded to private
+   * storage first; in 'local' mode the video itself is never uploaded or stored.
    */
-  const saveToLearningDiary = async () => {
+  const saveToLearningDiary = async (mode: 'local' | 'upload') => {
     setSummaryError(null);
     if (framesRef.current.length === 0) {
       setSummaryError('No preview frames were captured, so a diary summary could not be saved.');
       return;
     }
+    setAnalysisMode(mode);
     setIsSummarizing(true);
     try {
+      const video = mode === 'upload' && recording ? await uploadRecordingVideo(recording) : undefined;
       const entry = await saveSessionSummary(
         Math.round(durationRef.current / 1000),
         framesRef.current,
         observationsRef.current,
+        video,
       );
       setDiaryEntries((current) => [entry, ...current]);
+      setHasSavedToDiary(true);
     } catch (caughtError) {
       setSummaryError(caughtError instanceof Error ? caughtError.message : 'The session could not be summarized.');
     } finally {
@@ -369,6 +378,8 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
     setSkippedDuplicateCount(0);
     setElapsedMs(0);
     setSummaryError(null);
+    setAnalysisMode(null);
+    setHasSavedToDiary(false);
     setRecordingState('idle');
   };
 
@@ -393,9 +404,9 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
         <div>
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Screen learning observer</h3>
           <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-            Analyze one reduced frame every 12 seconds while recording. When you stop, a short AI summary of what
-            you learned is saved to your learning diary below — the video itself is never uploaded or stored. This
-            also starts your study session timer above.
+            Analyze one reduced frame every 12 seconds while recording. When you stop, choose whether to save an AI
+            summary to your learning diary — with the video kept local, or with the full recording uploaded too.
+            This also starts your study session timer above.
           </p>
         </div>
         {recordingState === 'recording' ? (
@@ -412,8 +423,9 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
 
       <label className="mt-3 flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
         <input type="checkbox" checked={hasConsent} onChange={(event) => setHasConsent(event.target.checked)} disabled={recordingState === 'recording' || isBusy} className="mt-0.5 h-4 w-4 accent-indigo-600" />
-        I consent to recording my selected source on this device and sending sampled frames to OpenAI so a short
-        learning-diary summary can be saved. The video itself is never uploaded or stored.
+        I consent to recording my selected source on this device. If I choose to analyze the session afterward,
+        sampled frames are sent to OpenAI for a short learning-diary summary, and the full video is uploaded only if
+        I explicitly choose that option.
       </label>
 
       <FacePresenceMonitor onPresenceChange={handlePresenceChange} />
@@ -500,15 +512,34 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
               </button>
             </div>
           </div>
-          {isSummarizing && (
-            <p role="status" className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Saving a short summary to your learning diary (the video itself is never uploaded)...
+
+          {!hasSavedToDiary && (
+            <div className="mt-3">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Want an AI summary of what you learned? Choose whether to keep the video local, or upload the full
+                recording too.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => void saveToLearningDiary('local')} disabled={isSummarizing} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                  <Brain className="h-4 w-4" aria-hidden="true" />
+                  {isSummarizing && analysisMode === 'local' ? 'Analyzing...' : 'Analyze (video stays local)'}
+                </button>
+                <button type="button" onClick={() => void saveToLearningDiary('upload')} disabled={isSummarizing} className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500">
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                  {isSummarizing && analysisMode === 'upload' ? 'Uploading and analyzing...' : 'Analyze + upload full video'}
+                </button>
+              </div>
+            </div>
+          )}
+          {hasSavedToDiary && (
+            <p role="status" className="mt-3 text-sm text-emerald-700 dark:text-emerald-400">
+              Saved to your learning diary below{analysisMode === 'upload' ? ' (full video uploaded)' : ' (video stayed local)'}.
             </p>
           )}
           {summaryError && (
             <p role="alert" className="mt-2 text-sm text-rose-600 dark:text-rose-400">
               {summaryError}{' '}
-              <button type="button" onClick={() => void saveToLearningDiary()} className="font-medium underline">
+              <button type="button" onClick={() => void saveToLearningDiary(analysisMode ?? 'local')} className="font-medium underline">
                 Try again
               </button>
             </p>
@@ -520,8 +551,8 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
         <div className="mt-4">
           <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Learning diary</h4>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            A short AI summary is saved automatically at the end of each session as a record of what you learned
-            — never the video.
+            A short AI summary is saved whenever you choose to analyze a session. If you also chose to upload the
+            full video, it's stored securely in your account — otherwise the video is never uploaded or stored.
           </p>
           {isLoadingDiary ? (
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Loading diary...</p>
@@ -533,6 +564,11 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
                     <div>
                       <p className="text-xs text-emerald-700 dark:text-emerald-400">
                         {new Date(entry.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · {formatElapsed(entry.durationSeconds * 1000)}
+                        {entry.hasStoredVideo && (
+                          <span className="ml-2 rounded-full bg-emerald-200 px-1.5 py-0.5 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                            Full video stored
+                          </span>
+                        )}
                       </p>
                       <p className="mt-1 text-sm text-emerald-900 dark:text-emerald-100">{entry.analysis.summary}</p>
                       {entry.analysis.observedWork.length > 0 && (

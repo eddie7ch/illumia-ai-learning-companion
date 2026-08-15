@@ -1,4 +1,5 @@
-import type { Activity, LearnerProfile, LearningPlanStep } from '../types';
+import type { Activity, LearnerProfile, LearningPlanStep, TopicMastery } from '../types';
+import { dueTopicReviews } from './topicMastery';
 
 /**
  * Builds a short, personalized learning plan from the learner's current profile
@@ -8,8 +9,19 @@ import type { Activity, LearnerProfile, LearningPlanStep } from '../types';
 export function generateLearningPlan(
   profile: LearnerProfile,
   activities: Activity[],
+  topicMasteries: TopicMastery[] = [],
+  now = new Date(),
 ): LearningPlanStep[] {
   const steps: LearningPlanStep[] = [];
+
+  const dueReviews = dueTopicReviews(topicMasteries, now);
+  dueReviews.slice(0, 2).forEach((mastery) => {
+    steps.push({
+      id: `plan-review-${mastery.topic}`,
+      title: `Review ${mastery.topic}`,
+      description: `This topic is due for spaced review. Current mastery: ${mastery.masteryScore}%.`,
+    });
+  });
 
   const inProgress = activities.find((activity) => activity.status === 'in-progress');
   const recommendationMatchesInProgress =
@@ -41,9 +53,10 @@ export function generateLearningPlan(
     });
   }
 
+  const weakestTopic = topicMasteries[0]?.topic;
   const upNext = activities.filter(
     (activity) => activity.status === 'not-started' && !usedActivityIds.has(activity.id),
-  );
+  ).sort((a, b) => Number(b.topic === weakestTopic) - Number(a.topic === weakestTopic));
   upNext.slice(0, 2).forEach((activity) => {
     steps.push({
       id: `plan-${activity.id}`,

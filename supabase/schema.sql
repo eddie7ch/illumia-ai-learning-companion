@@ -186,3 +186,32 @@ drop policy if exists "screen_observation_events: owner all" on screen_observati
 create policy "screen_observation_events: owner all" on screen_observation_events for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- One explainable mastery and spaced-repetition record per course topic.
+create table if not exists topic_mastery_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  course_id uuid not null references courses (id) on delete cascade,
+  topic text not null,
+  mastery_score integer not null default 0 check (mastery_score between 0 and 100),
+  diagnostic_score integer check (diagnostic_score between 0 and 100),
+  evidence_count integer not null default 0,
+  last_practiced_at timestamptz not null default now(),
+  next_review_at timestamptz not null default now(),
+  review_interval_days integer not null default 1,
+  ease_factor numeric not null default 2.5,
+  repetitions integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, course_id, topic)
+);
+
+create index if not exists topic_mastery_records_course_due_idx
+  on topic_mastery_records (course_id, next_review_at);
+
+alter table topic_mastery_records enable row level security;
+
+drop policy if exists "topic_mastery_records: owner all" on topic_mastery_records;
+create policy "topic_mastery_records: owner all" on topic_mastery_records for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

@@ -42,3 +42,20 @@ export interface ProfileRow {
   name: string;
   created_at: string;
 }
+
+export interface TopicMasteryRow {
+  id: string;
+  user_id: string;
+  course_id: string;
+  topic: string;
+  mastery_score: number;
+  diagnostic_score: number | null;
+  evidence_count: number;
+  last_practiced_at: string;
+  next_review_at: string;
+  review_interval_days: number;
+  ease_factor: number;
+  repetitions: number;
+  created_at: string;
+  updated_at: string;
+}

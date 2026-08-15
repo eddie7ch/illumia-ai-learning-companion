@@ -5,6 +5,7 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const MAX_FRAMES = 4;
 const MAX_FRAME_LENGTH = 900_000;
 const MAX_DURATION_SECONDS = 12 * 60 * 60;
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const HOURLY_LIMIT = 15;
 const DAILY_LIMIT = 40;
 
@@ -85,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const userId = userData.user.id;
 
-  const { durationSeconds, frames, observations } = req.body ?? {};
+  const { durationSeconds, frames, observations, storagePath, sizeBytes } = req.body ?? {};
   if (
     typeof durationSeconds !== 'number' ||
     !Number.isFinite(durationSeconds) ||
@@ -98,6 +99,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Missing or invalid session data.' });
     return;
   }
+  let validStoragePath: string | null = null;
+  if (storagePath !== undefined) {
+    if (
+      typeof storagePath !== 'string' ||
+      storagePath.length > 300 ||
+      !storagePath.startsWith(`${userId}/`) ||
+      !/^[a-zA-Z0-9/_-]+\.webm$/.test(storagePath)
+    ) {
+      res.status(400).json({ error: 'Invalid storage path.' });
+      return;
+    }
+    validStoragePath = storagePath;
+  }
+  const validSizeBytes =
+    typeof sizeBytes === 'number' && Number.isFinite(sizeBytes) && sizeBytes >= 0
+      ? Math.min(Math.round(sizeBytes), MAX_UPLOAD_BYTES)
+      : 0;
   const validFrames = frames.filter(
     (frame): frame is string =>
       typeof frame === 'string' && frame.startsWith('data:image/jpeg;base64,') && frame.length <= MAX_FRAME_LENGTH,
@@ -174,8 +192,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('screen_recordings')
       .insert({
         user_id: userId,
+        storage_path: validStoragePath,
         duration_seconds: Math.max(0, Math.round(durationSeconds)),
-        status: 'summary_only',
+        size_bytes: validSizeBytes,
+        status: validStoragePath ? 'analyzed' : 'summary_only',
         consent_given: true,
         analysis: savedAnalysis,
         analyzed_at: new Date().toISOString(),
@@ -183,6 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('id, created_at')
       .single();
     if (insertError || !inserted) {
+      if (validStoragePath) await supabase.storage.from('screen-recordings').remove([validStoragePath]);
       res.status(500).json({ error: 'The summary was generated but could not be saved.' });
       return;
     }

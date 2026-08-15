@@ -342,11 +342,14 @@ course sharing/leaderboards, and richer progress analytics beyond the calendar/t
   to sample a reduced frame every 12 seconds while recording, sending it to OpenAI for a live,
   privacy-filtered observation (visible action, evidence, an optional clarifying question, and a
   suggested activity/progress update the learner must confirm — nothing updates automatically).
-  When the learner stops, a short AI summary of what was learned is generated from a few sampled
-  frames and saved to a persistent "learning diary" (Supabase `screen_recordings` table) — the
-  recorded video itself is never uploaded or stored anywhere, only the text summary, to avoid
-  unnecessary storage cost/privacy exposure. A "Download locally" link still lets the learner keep
-  the raw video on their own device if they want it, entirely client-side. A companion feature — an
-  in-app "Study Session Tracker" using only Page Visibility/focus and input events (no video, no
-  permissions, nothing ever leaves the browser) — is also built, giving a time-on-activity timeline
-  and idle/active breakdown even for learners who never turn on screen sharing.
+  Starting a recording also starts the Study Session Tracker below, so both begin from one click.
+  When the learner stops, they choose whether (and how) to analyze the session: "Analyze (video
+  stays local)" sends only the sampled frames for a short AI summary saved to a persistent
+  "learning diary" (Supabase `screen_recordings` table) and the recorded video itself is never
+  uploaded or stored; "Analyze + upload full video" additionally uploads the recording to private
+  Supabase Storage so a copy is kept alongside the summary. A "Download locally" link always lets
+  the learner keep the raw video on their own device, entirely client-side, regardless of which
+  analysis option (if any) they choose. A companion feature — an in-app "Study Session Tracker"
+  using only Page Visibility/focus and input events (no video, no permissions, nothing ever leaves
+  the browser) — is also built, giving a time-on-activity timeline and idle/active breakdown even
+  for learners who never turn on screen sharing.
