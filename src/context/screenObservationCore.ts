@@ -8,6 +8,7 @@ export interface SharedScreenObservation {
   evidence: string;
   confidence: number;
   activityTitle: string | null;
+  imageDataUrl: string;
 }
 
 export interface ScreenObservationApi {

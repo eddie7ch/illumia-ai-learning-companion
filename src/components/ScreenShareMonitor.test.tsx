@@ -232,8 +232,10 @@ describe('ScreenShareMonitor', () => {
       activityTitle: activity.title,
       confidence: 0.9,
       evidence: 'A component and useState call are visible.',
+      imageDataUrl: 'data:image/jpeg;base64,frame',
     });
     expect(screenObservationBridge.publishObservation.mock.calls[0][0]).not.toHaveProperty('dataUrl');
+    expect(screenObservationBridge.publishObservation.mock.calls[0][0]).not.toHaveProperty('video');
     expect(screen.getByText(/possible confusion detected/i)).toBeInTheDocument();
     expect(onConfirmProgress).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /confirm progress/i }));

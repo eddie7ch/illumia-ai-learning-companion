@@ -166,7 +166,7 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
         questionsEnabledRef.current,
         controller.signal,
       );
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !observation) return;
       observationsRef.current = [...observationsRef.current, observation];
       setObservations(observationsRef.current);
       publishObservation({
@@ -177,6 +177,7 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
         evidence: observation.evidence,
         confidence: observation.confidence,
         activityTitle: observation.activityTitle,
+        imageDataUrl: captured.dataUrl,
       });
     } catch (caughtError) {
       if (!controller.signal.aborted) {
@@ -191,6 +192,10 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
 
   scheduledObservationRef.current = () => {
     void runObservation();
+  };
+
+  const handleSharedVideoReady = () => {
+    void runObservation(true);
   };
 
   const stopRecording = () => {
@@ -475,7 +480,7 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
             <span className="font-mono text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{formatElapsed(elapsedMs)}</span>
           </div>
         </div>
-        <video ref={videoRef} autoPlay muted playsInline onLoadedData={() => captureFrame(true)} aria-label="Shared screen preview" className="aspect-video w-full rounded-lg bg-slate-950 object-contain" />
+        <video ref={videoRef} autoPlay muted playsInline onLoadedData={handleSharedVideoReady} aria-label="Shared screen preview" className="aspect-video w-full rounded-lg bg-slate-950 object-contain" />
         {skippedDuplicateCount > 0 && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Skipped {skippedDuplicateCount} unchanged frame{skippedDuplicateCount === 1 ? '' : 's'}.</p>}
       </div>
 

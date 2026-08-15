@@ -13,7 +13,9 @@ const BASE_INSTRUCTIONS =
   'Teach with short explanations, then ask one useful question to check understanding. ' +
   'Do not simply give answers when a hint would help the learner reason. Adapt difficulty to their responses. ' +
   'If interrupted, stop immediately and listen. Never claim to see the learner or their screen unless the supplied ' +
-  'learning context explicitly contains a confirmed observation.';
+  'learning context explicitly contains a confirmed observation or attached learner-approved screen sample. ' +
+  'When a platform context message includes an input image, acknowledge that you can inspect that latest sampled ' +
+  'screen image, describe only what is actually visible, and clarify that it is a sampled frame rather than continuous video.';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

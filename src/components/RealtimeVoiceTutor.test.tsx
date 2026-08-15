@@ -66,6 +66,7 @@ describe('RealtimeVoiceTutor', () => {
       evidence: 'useState is visible in the editor',
       confidence: 0.91,
       activityTitle: 'State lesson',
+      imageDataUrl: 'data:image/jpeg;base64,frame',
     };
     vi.mocked(useRealtimeVoiceSession).mockReturnValue({
       phase: 'listening', transcripts: [], isMuted: false, elapsedSeconds: 12, error: null, ...controls,
@@ -79,8 +80,11 @@ describe('RealtimeVoiceTutor', () => {
     });
     const user = userEvent.setup();
     const view = render(<RealtimeVoiceTutor activities={[]} />);
-    await user.click(screen.getByRole('checkbox', { name: /share sanitized screen observations/i }));
-    expect(controls.shareScreenObservation).toHaveBeenCalledWith(expect.stringContaining('Adding a useState hook'));
+    await user.click(screen.getByRole('checkbox', { name: /share changed, reduced screen samples/i }));
+    expect(controls.shareScreenObservation).toHaveBeenCalledWith(
+      expect.stringContaining('Adding a useState hook'),
+      'data:image/jpeg;base64,frame',
+    );
     expect(controls.shareScreenObservation).toHaveBeenCalledTimes(1);
 
     vi.mocked(useScreenObservation).mockReturnValue({

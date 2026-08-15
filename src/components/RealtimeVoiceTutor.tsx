@@ -31,6 +31,20 @@ export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorPro
     `${activity.title} | topic ${activity.topic} | ${activity.status}` +
     (activity.feedback ? ` | score ${activity.feedback.score}` : ''),
   ).join('\n');
+  const startingContext = [
+    context,
+    shareScreenContext && isScreenAnalysisActive && latestObservation
+      ? [
+          'Current learner-approved sampled screen observation:',
+          latestObservation.summary,
+          `Visible action: ${latestObservation.action}`,
+          `Evidence: ${latestObservation.evidence}`,
+          latestObservation.activityTitle ? `Matched activity: ${latestObservation.activityTitle}` : '',
+          `Confidence: ${Math.round(latestObservation.confidence * 100)}%.`,
+          'This is sampled context, not continuous video. You may discuss it without claiming broader visibility.',
+        ].filter(Boolean).join(' ')
+      : '',
+  ].filter(Boolean).join('\n\n');
 
   useEffect(() => {
     if (!shareScreenContext || !isActive || !isScreenAnalysisActive || !latestObservation) return;
@@ -41,7 +55,7 @@ export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorPro
       `Evidence: ${latestObservation.evidence}`,
       latestObservation.activityTitle ? `Matched activity: ${latestObservation.activityTitle}` : '',
       `Confidence: ${Math.round(latestObservation.confidence * 100)}%`,
-    ].filter(Boolean).join('. '));
+    ].filter(Boolean).join('. '), latestObservation.imageDataUrl);
     if (shared) lastSharedIdRef.current = latestObservation.id;
   }, [shareScreenContext, isActive, isScreenAnalysisActive, latestObservation, voice]);
 
@@ -75,7 +89,7 @@ export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorPro
 
       <div className="mt-3 flex flex-wrap gap-2">
         {!isActive ? (
-          <button type="button" onClick={() => voice.start(context)} disabled={voice.phase === 'connecting'} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+          <button type="button" onClick={() => voice.start(startingContext)} disabled={voice.phase === 'connecting'} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
             <Phone className="h-4 w-4" aria-hidden="true" /> Start live voice
           </button>
         ) : (
@@ -105,7 +119,7 @@ export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorPro
             className="mt-0.5 h-4 w-4 accent-indigo-600"
           />
           <span>
-            Share sanitized screen observations with the voice tutor. No raw frames or video are sent through this bridge.
+            Share changed, reduced screen samples and sanitized observations with the voice tutor. Continuous video is not sent.
           </span>
         </label>
         <p className={`mt-1 flex items-center gap-1 text-xs ${shareScreenContext && isScreenAnalysisActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
@@ -118,6 +132,11 @@ export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorPro
                 : 'Linked; waiting for the first changed-screen observation.'
               : 'Waiting for active screen analysis.'}
         </p>
+        {!shareScreenContext && isActive && isScreenAnalysisActive && (
+          <p role="status" className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            Screen analysis is active, but voice cannot inspect it until you enable the checkbox above.
+          </p>
+        )}
       </div>
 
       {voice.error && <p role="alert" className="mt-2 text-xs text-rose-600 dark:text-rose-400">{voice.error}</p>}

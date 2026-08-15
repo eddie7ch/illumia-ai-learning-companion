@@ -204,20 +204,28 @@ export function useRealtimeVoiceSession() {
     setPhase('listening');
   }, []);
 
-  const shareScreenObservation = useCallback((observation: string): boolean => {
+  const shareScreenObservation = useCallback((observation: string, imageDataUrl?: string): boolean => {
     const channel = channelRef.current;
     if (!channel || channel.readyState !== 'open') return false;
     const sanitized = observation.replace(/[\r\n]+/g, ' ').trim().slice(0, 1200);
     if (!sanitized) return false;
+    const content: Array<Record<string, unknown>> = [{
+      type: 'input_text',
+      text:
+        'Platform-provided learner-approved screen context. This is not a spoken learner message. ' +
+        `The screen observer is active and sampled this visible content: ${sanitized}. ` +
+        'The attached image is the actual reduced screen sample. You may inspect and discuss what is visible in ' +
+        'that sample, but do not claim continuous video access or visibility outside it.',
+    }];
+    if (imageDataUrl?.startsWith('data:image/jpeg;base64,') && imageDataUrl.length <= 900_000) {
+      content.push({ type: 'input_image', image_url: imageDataUrl });
+    }
     channel.send(JSON.stringify({
       type: 'conversation.item.create',
       item: {
         type: 'message',
-        role: 'system',
-        content: [{
-          type: 'input_text',
-          text: `Learner-approved screen observation (sampled and may be delayed): ${sanitized}`,
-        }],
+        role: 'user',
+        content,
       },
     }));
     return true;
@@ -230,10 +238,12 @@ export function useRealtimeVoiceSession() {
       type: 'conversation.item.create',
       item: {
         type: 'message',
-        role: 'system',
+        role: 'user',
         content: [{
           type: 'input_text',
-          text: 'Screen observation sharing is now inactive. Treat earlier screen observations as historical and do not claim current screen visibility.',
+          text:
+            'Platform context update: screen observation sharing is now inactive. This is not a spoken learner ' +
+            'message. Treat earlier observations as historical and do not claim current screen visibility.',
         }],
       },
     }));
