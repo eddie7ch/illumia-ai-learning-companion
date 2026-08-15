@@ -177,3 +177,50 @@ therefore carries real security surface area that a frontend-only mock demo woul
 - **Client-side "bring your own key" OpenAI mode** (`src/data/liveAi.ts`) — already disclosed in the
   README before this review; re-confirmed here as still accurate (key never leaves that browser tab
   except to call OpenAI directly).
+
+## Shared global $5/day AI spend cap (added after the review above)
+
+The per-feature rate limits above (grading, chat) bound *how often* one user or the whole app can
+call OpenAI, but not the total dollar cost if every limit were hit simultaneously — and by this
+point three more AI endpoints (`generate-diagnostic.ts`, `observe-screen.ts`,
+`save-session-summary.ts`) had been added, each with its own separate limit. Rather than reason
+about worst-case spend as a sum of six independent caps, `api/_aiBudget.ts` adds one shared backstop
+that all six endpoints check before calling OpenAI:
+
+- Each OpenAI response's `usage.prompt_tokens`/`completion_tokens` is converted to an estimated USD
+  cost at `gpt-4o-mini` pricing and logged to `ai_usage_events` (owner-scoped RLS, same pattern as
+  `chat_events`/`grading_events`).
+- A `SECURITY DEFINER` function, `ai_usage_daily_cost_usd()`, sums the last 24h of estimated cost
+  across *all* users without exposing per-row data to callers — same reasoning as
+  `chat_events_daily_count()` above: the check needs a global total, not per-user RLS access.
+- Every endpoint calls it before making an OpenAI request and returns `429` once the rolling 24h
+  total hits **$5**, regardless of which feature or user caused it. It fails *open* (allows the
+  call) if the RPC itself errors, matching the existing `chat_events_daily_count()` behavior, so a
+  transient DB hiccup degrades to "no extra cap" rather than "AI features go down."
+- This sits *underneath* the OpenAI dashboard's own account-wide monthly spend limit (see README) —
+  the $5/day cap is enforced by the app itself and resets daily; the dashboard limit is the
+  final, provider-side backstop and only resets monthly.
+
+## Production incident: invalid `OPENAI_API_KEY` after deploy (2026-08-15)
+
+**What happened:** shortly after a deploy, AI-backed features (e.g. the review-queue quiz
+generation) started failing in production with OpenAI's own `Incorrect API key provided` error
+surfaced directly to the user. `vercel env ls production` showed `OPENAI_API_KEY` was present, but
+the stored value didn't match any key OpenAI still considered valid — most likely a stale/incorrect
+value carried over from unrelated concurrent work on the same shared environment, not a code bug
+(billing/quota was fine: OpenAI's usage dashboard showed $0.01 of a $10 limit spent).
+
+**Why this class of bug is easy to miss:** `api/generate-quiz.ts` (and the other five AI endpoints)
+forward OpenAI's raw `error.message` straight to the client on a non-`ok` response
+(`res.status(502).json({ error: body?.error?.message || ... })`). That's why the *exact* OpenAI
+wording reached the browser instead of a generic failure message — convenient for debugging this
+incident quickly, but also a minor information-disclosure smell worth hardening later (log the raw
+error server-side only, return a generic message to the client).
+
+**Fix:** generated a fresh OpenAI secret key (`illumia-prod`, scoped to the same project/permissions
+as the key it replaced), rotated it into Vercel (`vercel env rm` + `vercel env add
+OPENAI_API_KEY production`, entered interactively so the key value was never pasted into chat or
+logs), and redeployed. Verified fixed by re-running the previously-failing action in the app.
+
+**Follow-up not yet done:** revoke the old broken key on the OpenAI dashboard now that it's
+confirmed unused, and consider the generic-error-message hardening above.
