@@ -107,7 +107,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-      res.status(502).json({ error: body?.error?.message || 'The AI grading service failed.' });
+      console.error('OpenAI grading request failed:', body?.error?.message || response.status);
+      res.status(502).json({ error: 'The AI grading service failed.' });
       return;
     }
 

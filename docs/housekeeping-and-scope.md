@@ -253,4 +253,26 @@ OPENAI_API_KEY production`, entered interactively so the key value was never pas
 logs), and redeployed. Verified fixed by re-running the previously-failing action in the app.
 
 **Follow-up not yet done:** revoke the old broken key on the OpenAI dashboard now that it's
-confirmed unused, and consider the generic-error-message hardening above.
+confirmed unused.
+
+## Hardening pass after the incident (2026-08-15)
+
+Two of the gaps flagged above (and by the incident itself) were quick, low-risk fixes and worth
+doing rather than just documenting:
+
+- **Raw OpenAI error messages no longer reach the client.** `api/chat.ts`, `api/generate-quiz.ts`,
+  and `api/grade.ts` used to forward `body?.error?.message` straight from OpenAI's response into the
+  `502` sent to the browser — convenient for debugging the key-rotation incident quickly, but an
+  information-disclosure smell in general (leaks upstream-provider internals to end users). Now all
+  three `console.error` the real message server-side (visible in Vercel logs) and return a fixed
+  generic message instead, matching the pattern `api/generate-diagnostic.ts`,
+  `api/observe-screen.ts`, and `api/save-session-summary.ts` already used.
+- **Added a CI workflow** (`.github/workflows/ci.yml`) that runs `npm run lint`, `npm run test --
+  run`, and `npm run build` on every push to `master` and every pull request. Previously these
+  checks were only ever run manually/locally before a deploy — this makes "tests/lint/build are
+  green" a guarantee rather than a habit.
+
+**Left as-is, deliberately:** the TOCTOU race on rate-limit counters (would need an atomic
+Postgres function replacing the current count-then-insert pattern across five tables/endpoints —
+a bigger, riskier change to the live schema than the two fixes above) and the single-developer/
+no-peer-review/shared-workspace gaps, none of which a code change can fix.
