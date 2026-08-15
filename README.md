@@ -30,14 +30,17 @@ track. It shows:
   evidence updates topic mastery, an SM-2-style queue schedules review, and the plan prioritizes
   due reviews and weak topics.
 - **Live voice tutor** — secure OpenAI Realtime/WebRTC conversation with spoken responses,
-  transcripts, mute, interruption, and a 15-minute safety cutoff.
+  transcripts, mute, interruption, a 10-minute cutoff, and live spending status.
 - **Screen learning observer** — with explicit consent, samples changed frames, builds a timeline,
-  and proposes progress updates that require confirmation. An optional bridge shares only
-  sanitized observation text with the voice tutor, never raw frames.
+  and proposes progress updates that require confirmation. An optional bridge shares changed,
+  reduced screen samples plus sanitized context with the voice tutor, never continuous video.
 - **Learning diary, voice notes, and presence** — saves AI session summaries, records downloadable
   local voice notes, and can pause observation when local-only face detection reports away.
 - **Dark mode** — a manual light/dark toggle that respects the system preference by default and
   persists the learner's choice.
+- **Mobile-optimized layout** — responsive grids collapse into a single-column dashboard, the AI
+  tutor moves into a touch-friendly drawer/FAB, controls wrap without overlap, and dialogs use
+  viewport-safe sizing for phones and tablets.
 
 The app preserves a frontend-only demo mode, while the deployed real mode adds Supabase
 authentication/persistence and authenticated Vercel AI endpoints.
@@ -71,6 +74,10 @@ demonstrates secure production-style integration.
 
 **Why Tailwind CSS v4.** Chosen for fast, consistent, responsive styling without hand-rolled CSS,
 keeping the component code focused on structure and behavior.
+
+**Why mobile-first responsiveness.** Learners often review progress, ask a quick tutor question,
+or complete a short quiz from a phone. The same single-page workflow therefore adapts to narrow
+screens rather than hiding features or requiring a separate mobile application.
 
 **Why an AI-generated learning plan in addition to a single recommendation.** The case study lists
 "an AI-generated learning plan" as one of several optional AI experiences. A single "next step"
@@ -208,10 +215,15 @@ always requires your own OpenAI key and Supabase project, per the setup steps be
 > requests proxy to a separate `npx vercel dev --listen 3000` process. The learner-facing URL
 > remains port 5173. The live deployment needs no local setup.
 
-### Cost controls & abuse prevention
+### Security, cost controls & abuse prevention
 
 Since AI grading and tutor chat both call OpenAI using a shared server-side key, several layers of
 protection keep costs bounded even if the app is left publicly reachable:
+
+- **Authentication and data isolation** — every server-backed AI endpoint validates the Supabase
+  bearer token server-side; owner-scoped RLS protects courses, activities, mastery, diary, and
+  usage records. The OpenAI key is server-only, and HTTP security headers restrict framing,
+  content sources, referrers, and camera/microphone access to the app's own origin.
 
 - **Per-user rate limiting on grading** — `api/grade.ts` caps each signed-in user at **15 grading
   calls/hour** and **50/day**, enforced server-side via a `grading_events` log table (see
@@ -236,6 +248,14 @@ protection keep costs bounded even if the app is left publicly reachable:
   each `response.done` stores separate text/audio/image token counts and costs, and a 5-second
   heartbeat stops WebRTC at the session or combined daily ceiling. Reservations never reconcile
   below $0.75, intentionally overcounting rather than risking an unexpected bill.
+- **Realtime-specific containment** — voice uses the lower-cost `gpt-realtime-2.1-mini`, permits
+  at most 3 starts/hour and 10/day per user, stops after 10 minutes, validates monotonic token
+  totals, and stores separate text/audio/image costs. New sessions fail closed if reservation or
+  budget storage is unavailable; active sessions also stop if the 5-second budget heartbeat fails.
+- **Screen/camera/microphone consent** — each permission is independently controlled. Duplicate
+  screen frames are skipped, progress inferred from the screen requires confirmation, local face
+  presence never uploads camera frames, and stopping screen/voice immediately closes media tracks
+  and clears current context.
 - **OpenAI account-wide spend limit** — a hard monthly budget (with a hard-enforcement toggle, not
   just an alert) is set directly in the OpenAI dashboard at
   [platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits).

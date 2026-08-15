@@ -100,7 +100,7 @@ tools — explicitly **not** evaluated on production-readiness or feature count.
 - **Direct-to-`master` commits, no PR/branch workflow.** Already called out in the README's "Git
   workflow note" as a deliberate solo/demo speed trade-off, not an oversight.
 - **Shared demo API keys/rate limits, not per-reviewer isolation.** The server-backed AI features
-  use one shared OpenAI key with global caps (see README's "Cost controls & abuse prevention")
+  use one shared OpenAI key with global caps (see README's "Security, cost controls & abuse prevention")
   rather than per-user provisioning — appropriate for a cost-bounded demo, not how a multi-tenant
   product would actually be built.
 
@@ -167,7 +167,7 @@ therefore carries real security surface area that a frontend-only mock demo woul
   aren't atomic, so a burst of concurrent requests could theoretically exceed the stated per-hour/
   per-day limits before the insert lands. Building an atomic counter (e.g. a Postgres advisory lock
   or an atomic increment-and-check function) is reasonable for a real product but is more than this
-  demo needs — the OpenAI account-level spend cap (see README's "Cost controls & abuse prevention")
+  demo needs — the OpenAI account-level spend cap (see README's "Security, cost controls & abuse prevention")
   is the actual backstop against runaway cost, and the rate limits are best-effort UX, not the last
   line of defense.
 - **Self-scoped prompt injection via user-supplied text** (e.g. course/activity titles fed into AI
@@ -200,6 +200,35 @@ that all six endpoints check before calling OpenAI:
 - This sits *underneath* the OpenAI dashboard's own account-wide monthly spend limit (see README) —
   the $5/day cap is enforced by the app itself and resets daily; the dashboard limit is the
   final, provider-side backstop and only resets monthly.
+
+## Realtime voice cost containment and abuse protection
+
+Realtime audio/image usage is metered differently from normal chat completions, so it has a
+separate conservative control path:
+
+- Uses lower-cost `gpt-realtime-2.1-mini` rather than the full Realtime model.
+- `reserve_realtime_ai_budget()` takes a Postgres advisory lock and reserves exactly **$0.75**
+  before a session starts. It rejects null, negative, or caller-selected reservation amounts and
+  refuses admission when the reservation would exceed the shared **$5 rolling daily cap**.
+- Reservation and budget lookup failures are fail-closed for voice. An infrastructure problem
+  therefore disables new/active voice sessions rather than disabling cost enforcement.
+- Every `response.done` reports cumulative text-input/output, audio-input/output, and image-input
+  token totals. The server stores monotonic token counts plus separate modality costs in
+  `ai_usage_events`; stale reports cannot reduce previously recorded usage.
+- The browser checks budget every five seconds and stops WebRTC immediately at either the **$0.75
+  session ceiling** or the **$5 combined daily ceiling**. Sessions also stop after ten minutes and
+  are limited to three starts/hour and ten/day per user.
+- The OpenAI organization is independently verified at a **$10 monthly hard limit** with
+  enforcement enabled. That provider-side `429` remains the final backstop against application
+  bugs, concurrency, or missing client reports.
+
+## Mobile optimization
+
+The deployed app is designed for phones and tablets as well as desktop: multi-column dashboard
+grids collapse to one column, the AI tutor becomes a floating-action-button drawer, controls wrap
+instead of overlapping, and drawers/dialogs use viewport-safe sizing. This keeps diagnostics,
+quizzes, activity feedback, voice controls, and progress views available on narrow screens rather
+than maintaining a reduced mobile-only feature set.
 
 ## Production incident: invalid `OPENAI_API_KEY` after deploy (2026-08-15)
 
