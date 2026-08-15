@@ -45,67 +45,28 @@ track. It shows:
 The app preserves a frontend-only demo mode, while the deployed real mode adds Supabase
 authentication/persistence and authenticated Vercel AI endpoints.
 
-## Approach & design decisions
+## Documentation
 
-_For a candid look at where this project stayed inside the case study's scope, where it went
-beyond it (and why), and what a later cleanup pass changed and deliberately left alone, see
-[`docs/housekeeping-and-scope.md`](docs/housekeeping-and-scope.md)._
+This README is a short index. The reasoning and current-state detail live in focused docs:
 
-**Problem framing.** The case study describes four learner needs: understand progress, get
-feedback, see improvement areas, and know what to do next. Rather than spreading effort across
-many shallow features, I prioritized a single, coherent dashboard that answers all four
-questions at a glance, plus one deep, meaningful AI interaction (the tutor chat) rather than
-several shallow ones. This matches the brief's emphasis on "rapidly build a polished and
-functional prototype" over feature count.
+- [`docs/architecture.md`](docs/architecture.md) — system components, demo vs. real mode, request
+  flows, trust boundaries, tech stack, and project structure.
+- [`docs/security-and-privacy.md`](docs/security-and-privacy.md) — auth/RLS, rate limits, the
+  shared AI budget cap, Realtime voice budget enforcement, consent controls, and data retention.
+- [`docs/adaptive-learning.md`](docs/adaptive-learning.md) — mastery scoring, diagnostics, and the
+  SM-2-style spaced review schedule.
+- [`docs/operations.md`](docs/operations.md) — setup, deployment, key rotation, and troubleshooting.
+- [`docs/adr/`](docs/adr/README.md) — architecture decision records: what was chosen, what
+  alternatives were considered, and why.
+- [`docs/housekeeping-and-scope.md`](docs/housekeeping-and-scope.md) — a candid audit of where this
+  project stayed inside the case study's scope, where it went beyond it (and why), a security
+  review, and production incident history.
 
-**Why a dashboard + chat, not a wizard or multi-step flow.** Learners returning to a learning
-platform want an immediate answer to "where do I stand and what's next," so the landing view
-leads with progress and the recommendation, with activity detail and open-ended Q&A available
-but not forced.
-
-**Why feedback is inline/expandable rather than a separate page.** The brief explicitly excludes
-additional pages. Expanding feedback in place keeps the activity list scannable while still
-surfacing the score/strengths/suggestions structure from the "Evaluate Learner Work" example.
-
-**Why keep a simulated tutor alongside real AI.** The brief accepts mocked AI, so demo mode keeps a
-zero-setup keyword responder. Real mode adds authenticated text and Realtime voice AI, while BYOK
-remains an optional fallback. This keeps the core reviewable without credentials and still
-demonstrates secure production-style integration.
-
-**Why Tailwind CSS v4.** Chosen for fast, consistent, responsive styling without hand-rolled CSS,
-keeping the component code focused on structure and behavior.
-
-**Why mobile-first responsiveness.** Learners often review progress, ask a quick tutor question,
-or complete a short quiz from a phone. The same single-page workflow therefore adapts to narrow
-screens rather than hiding features or requiring a separate mobile application.
-
-**Why an AI-generated learning plan in addition to a single recommendation.** The case study lists
-"an AI-generated learning plan" as one of several optional AI experiences. A single "next step"
-recommendation answers *what's next*, but a short plan (`src/data/learningPlan.ts`) better answers
-*what does my next stretch of learning look like*, by sequencing the in-progress activity, the
-recommendation, upcoming activities tied to improvement areas, and a reminder to lean on existing
-strengths. It's implemented as a small deterministic function (not a real LLM call) so its
-reasoning is transparent and unit-testable.
-
-**Why mastery, diagnostics, and spaced review.** Completion alone does not show retention. A
-diagnostic establishes the starting point, topic evidence updates an explainable mastery score,
-and spaced reviews close the loop from assessment back to planning.
-
-**Why voice and screen context use separate permissions.** Voice makes tutoring natural; screen
-context makes it specific. They remain independently controlled: WebRTC handles audio, the
-observer samples only changed frames, progress changes require confirmation, and the voice bridge
-receives sanitized descriptions rather than screenshots or video.
-
-**Why a small automated test suite.** The case study doesn't require production-readiness, but a
-focused set of tests (pure-function unit tests for the learning plan generator, plus component
-tests for feedback expansion, progress display, and the chat flow) demonstrates the same care I'd
-apply to real product code, without over-investing in test infrastructure for a 3-6 hour exercise.
-
-**Why this is deployed live, even though the brief doesn't require it.** A hosted link
-([illumia-one.vercel.app](https://illumia-one.vercel.app)) lets a reviewer open the working
-prototype in one click, on any device, with zero setup — no cloning the repo, installing Node,
-or running `npm install`/`npm run dev` first. It also doubles as a quick sanity check that the
-build actually works outside my own machine, not just in local dev.
+**In short:** the case study describes four learner needs (understand progress, get feedback, see
+improvement areas, know what to do next) and explicitly excludes extra pages. This prototype
+answers all four from one dashboard plus one deep AI interaction (the tutor chat), rather than
+spreading effort across many shallow features or a multi-step wizard — see
+[ADR-0001](docs/adr/0001-single-page-dashboard-over-wizard.md) for the full reasoning.
 
 ## Built with AI assistance
 
@@ -149,17 +110,10 @@ To use the optional BYOK mode:
 2. Paste an [OpenAI API key](https://platform.openai.com/api-keys) you control.
 3. Ask a question — it's sent directly from your browser to OpenAI's Chat Completions API.
 
-Security notes (this is a demo pattern, not a production one):
-
-- The key lives only in component state for the current tab and is **never persisted**
-  (no `localStorage`/cookies) and never sent anywhere except OpenAI's API.
-- Calling a third-party API directly from the browser means the key is visible in that browser's
-  network requests — acceptable for briefly demoing your *own* key, but a real product would
-  proxy this call through a backend so the key never reaches the client.
-- If the request fails (bad key, network error, timeout), the chat automatically falls back to
-  the simulated responder and shows an inline notice rather than breaking the experience.
-- Live voice uses `gpt-realtime-2.1-mini`, is rate-limited, reserves $0.75 before connecting, and
-  automatically stops after 10 minutes. Screen images reach voice only after explicit opt-in.
+This is a demo pattern, not a production one: the key lives only in that tab's component state,
+is never persisted, and is never sent anywhere except OpenAI's API directly. See
+[docs/security-and-privacy.md](docs/security-and-privacy.md) for the full security model,
+including Realtime voice's budget reservation and rate limits.
 
 ## Real mode (optional): accounts, persistence, and AI-graded courses
 
@@ -184,89 +138,16 @@ actually use for your own learning:
 
 Real mode activates automatically once Supabase is configured; otherwise the app falls back to the
 demo experience, so the existing [live demo](https://illumia-one.vercel.app) keeps working
-unchanged.
+unchanged. You can also test server-backed AI without your own OpenAI key via the
+[live demo](https://illumia-one.vercel.app) or the "bring your own key" chat option above.
 
-**Testing the server-backed AI (grading/chat) without setting up your own OpenAI key:** either use
-the [live demo](https://illumia-one.vercel.app) directly (already configured with the maintainer's
-key, subject to the shared cost caps below), or use the "bring your own key" option in the chat
-panel (see [AI tutor modes](#ai-tutor-modes) above) with your own OpenAI key — that one
-works locally under plain `npm run dev` too, no Supabase or `vercel dev` required. Running the
-server-backed grading/chat/quiz-generation functions yourself (locally or on your own deployment)
-always requires your own OpenAI key and Supabase project, per the setup steps below.
+Full setup steps (Supabase project, schema, environment variables, local `vercel dev` proxy) are in
+[docs/operations.md](docs/operations.md#enabling-real-mode-supabase--openai).
 
-### Setup
-
-1. Create a free project at [supabase.com](https://supabase.com).
-2. In the project's SQL Editor, run [`supabase/schema.sql`](supabase/schema.sql) once to create the
-  learner, course, activity, mastery, review, diary, usage, and rate-limit records with RLS.
-3. Copy `.env.example` to `.env` and fill in your project's **URL** and **anon public key** (Project
-   Settings → API). Both are safe to expose client-side — Supabase's Row Level Security, not
-   secrecy of this key, is what protects each user's data.
-4. For AI grading and tutor chat, set these as **server-only** environment variables (in Vercel's
-   dashboard for a deployed app, or a local `.env` read by `vercel dev`) — never commit them or
-   paste them into client code:
-   - `OPENAI_API_KEY` — your own OpenAI key, used by both `api/grade.ts` and `api/chat.ts`.
-   - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — same values as step 3 (both serverless
-     functions re-validate the caller's session token independently of the browser).
-5. Run `npm run dev` (or deploy) — once `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are present,
-   the app boots into real mode and prompts you to sign up.
-
-> **Local AI note:** use `npm run dev` for the frontend at `http://localhost:5173`; its `/api`
-> requests proxy to a separate `npx vercel dev --listen 3000` process. The learner-facing URL
-> remains port 5173. The live deployment needs no local setup.
-
-### Security, cost controls & abuse prevention
-
-Since AI grading and tutor chat both call OpenAI using a shared server-side key, several layers of
-protection keep costs bounded even if the app is left publicly reachable:
-
-- **Authentication and data isolation** — every server-backed AI endpoint validates the Supabase
-  bearer token server-side; owner-scoped RLS protects courses, activities, mastery, diary, and
-  usage records. The OpenAI key is server-only, and HTTP security headers restrict framing,
-  content sources, referrers, and camera/microphone access to the app's own origin.
-
-- **Per-user rate limiting on grading** — `api/grade.ts` caps each signed-in user at **15 grading
-  calls/hour** and **50/day**, enforced server-side via a `grading_events` log table (see
-  `supabase/schema.sql`) with its own owner-scoped RLS policy. Requests over the limit get a `429`
-  before any OpenAI call is made, so a single account can't drive up spend.
-- **Shared global daily limit on tutor chat** — `api/chat.ts` caps the *whole app* at **100
-  server-backed chat replies/day** (not per-user, since this is a demo cost cap rather than
-  per-account abuse prevention), tracked via a `chat_events` table. Once the shared cap is hit for
-  the day, the chat falls back to a simulated response with a notice until it resets.
-  Cost-wise, each reply is a small `gpt-4o-mini` call (~500 input tokens of prompt/history +
-  up to 200 output tokens), roughly **$0.0002 per chat**. At the full 100/day cap that's about
-  **$0.02/day, or under $1/month** even if the limit is hit every single day — well inside the
-  $10/month account-wide cap below.
-- **Shared global $5/day AI spend cap across every endpoint** — `api/_aiBudget.ts` estimates the
-  USD cost (from each OpenAI response's `usage.prompt_tokens`/`completion_tokens`, at `gpt-4o-mini`
-  pricing) of every call made by `chat.ts`, `grade.ts`, `generate-quiz.ts`,
-  `generate-diagnostic.ts`, `observe-screen.ts`, and `save-session-summary.ts`, and logs it to an
-  `ai_usage_events` table. Before making an OpenAI call, every endpoint checks the combined
-  estimated spend across all of them for the last 24 hours (via the `ai_usage_daily_cost_usd()`
-  Postgres function) and returns a `429` once it reaches **$5**, regardless of which feature or
-  user is responsible. Realtime voice fails closed unless an atomic **$0.75 reservation** succeeds;
-  each `response.done` stores separate text/audio/image token counts and costs, and a 5-second
-  heartbeat stops WebRTC at the session or combined daily ceiling. Reservations never reconcile
-  below $0.75, intentionally overcounting rather than risking an unexpected bill.
-- **Realtime-specific containment** — voice uses the lower-cost `gpt-realtime-2.1-mini`, permits
-  at most 3 starts/hour and 10/day per user, stops after 10 minutes, validates monotonic token
-  totals, and stores separate text/audio/image costs. New sessions fail closed if reservation or
-  budget storage is unavailable; active sessions also stop if the 5-second budget heartbeat fails.
-- **Screen/camera/microphone consent** — each permission is independently controlled. Duplicate
-  screen frames are skipped, progress inferred from the screen requires confirmation, local face
-  presence never uploads camera frames, and stopping screen/voice immediately closes media tracks
-  and clears current context.
-- **OpenAI account-wide spend limit** — a hard monthly budget (with a hard-enforcement toggle, not
-  just an alert) is set directly in the OpenAI dashboard at
-  [platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits).
-  Once total spend across *all* keys on the account hits the limit, further API requests fail with
-  `429` regardless of what the app's own rate limiting does. This is the backstop against bugs or
-  limits being bypassed. This deployment is verified at **$10/month** with **Enforce a hard
-  limit** enabled.
-
-Both are independent of the client-side "bring your own key" tutor chat (`src/data/liveAi.ts`) —
-that feature uses a key the learner supplies themselves in their own browser session, so it can't
-run up cost on the app owner's account.
+AI grading and tutor chat share a server-side OpenAI key, so several layers of protection keep
+costs bounded even if the app is left publicly reachable — per-user rate limits, a shared $5/day
+AI spend cap, a $0.75-per-session Realtime voice reservation, and a $10/month OpenAI account-wide
+hard limit. Full detail in [docs/security-and-privacy.md](docs/security-and-privacy.md).
 
 ## Getting started
 
@@ -277,90 +158,15 @@ npm install
 npm run dev
 ```
 
-Then open the URL printed in the terminal (typically http://localhost:5173/).
+Open the URL printed in the terminal (typically http://localhost:5173/). See
+[docs/operations.md](docs/operations.md) for running tests, building for production, enabling real
+mode, deploying, and troubleshooting.
 
-To run the automated test suite:
+## Project structure and AI experience reasoning
 
-```bash
-npm run test
-```
-
-To create a production build:
-
-```bash
-npm run build
-npm run preview
-```
-
-## Project structure
-
-```
-api/
-  grade.ts            Serverless endpoint: AI-grades a submission using a server-only OpenAI key
-  chat.ts             Serverless endpoint: server-backed AI tutor chat replies (shared daily cap)
-  generate-quiz.ts    Serverless endpoint: generates live, course-scoped quiz questions with OpenAI
-  generate-diagnostic.ts  Generates one prerequisite question per course topic
-  observe-screen.ts       Produces sanitized observations from consented sampled frames
-  save-session-summary.ts Persists a summary/timeline to the learning diary
-  realtime-session.ts    Authenticated OpenAI Realtime WebRTC SDP negotiation
-src/
-  components/         UI components — progress, trend chart, activity calendar, strengths,
-                       activity list/cards, quiz runner, learning plan, AI tutor chat, auth
-                       (sign in/up, password reset), course switcher, theme toggle, live clock
-  context/
-    StudySessionContext.tsx  Tracks active/idle time-on-page for the study session tracker
-    ScreenObservationProvider.tsx  Shares sanitized observer metadata across dashboard panels
-    useStudySession.ts       Hook consuming that context
-    studySessionCore.ts      Pure timing/idle-detection logic (unit-testable, no React/DOM)
-  data/
-    mockData.ts         Mock learner profile and activity/feedback data (demo mode)
-    coursePresets.ts    Starter activity lists for preset courses (real mode)
-    deriveInsights.ts   Derives strengths/improvements/recommendation from real activity data
-    aiTutor.ts          Simulated AI tutor responses (keyword-based, no real LLM call)
-    liveAi.ts           Optional "bring your own key" OpenAI integration with graceful fallback
-    learningPlan.ts     Generates a personalized learning plan from profile + activity data
-    topicMastery.ts     Mastery updates, levels, and SM-2-style review scheduling
-  hooks/
-    useTheme.ts             Light/dark theme state, persisted to localStorage
-    useAuth.ts              Supabase auth session state (real mode)
-    useCourseData.ts        Courses/activities data + grading/live-quiz actions (real mode)
-    useRealtimeVoiceSession.ts WebRTC voice lifecycle, transcripts, interruption, and cleanup
-    useLearnerCompanion.ts  Demo mode's in-memory activity/chat/feedback state (App.tsx)
-  services/
-    supabaseClient.ts   Supabase client, only created when configured
-    courseService.ts    Supabase CRUD for courses/activities + grading/live-quiz requests
-    aiService.ts        Demo mode's simulated AI feedback/recommendation logic
-  utils/
-    duration.ts         Formats minute counts as human-readable durations (e.g. "1h 15m")
-  test/
-    setup.ts           Test environment setup (jest-dom matchers, cleanup, jsdom polyfills)
-  types/
-    index.ts           Shared TypeScript types (activities, feedback, quiz questions, etc.)
-    database.ts        Types matching the Supabase schema (real mode)
-  App.tsx             Demo mode dashboard (mock data)
-  RealApp.tsx         Real mode dashboard (Supabase-backed, multi-course, AI-graded)
-  main.tsx            Picks App vs. RealApp based on whether Supabase is configured
-supabase/
-  schema.sql          Postgres schema + Row Level Security policies for real mode
-```
-
-Component and data files with matching `*.test.tsx` / `*.test.ts` files alongside them contain
-automated tests for that module.
-
-## AI experience and reasoning
-
-- **Feedback, quizzes, and diagnostics:** turn learner work into evidence instead of generic
-  content. AI output is capped/sanitized and requests are authenticated and rate-limited.
-- **Mastery, adaptive planning, and spaced review:** connect diagnosis, practice, assessment, and
-  retention in one explainable loop instead of treating activity completion as mastery.
-- **Text and Realtime voice tutoring:** support deliberate typed questions and natural spoken
-  coaching. WebRTC enables low-latency responses and interruption while the permanent key stays
-  behind the server boundary.
-- **Screen-aware guidance:** make tutoring relevant to visible work without silent monitoring.
-  Sharing requires consent; duplicate frames are skipped; progress suggestions require
-  confirmation; the voice bridge receives sanitized text and can be disabled independently.
-- **Learning diary and privacy controls:** retain useful summaries while giving learners local-only
-  download, optional private upload, deletion, pause/stop, and separate screen/mic/camera controls.
+See [docs/architecture.md](docs/architecture.md) for the full project structure, request flows,
+and trust boundaries, and [docs/adaptive-learning.md](docs/adaptive-learning.md) for how mastery,
+diagnostics, and spaced review connect assessment back to planning.
 
 ## Operating assumptions
 
@@ -388,19 +194,10 @@ redact likely secrets before sampled screen frames leave the browser.
 - **Token streaming (SSE):** in a production implementation, `aiService.ts` would consume a
   Server-Sent Events (SSE) `ReadableStream` from a backend API rather than resolving a single
   Promise, rendering AI tutor responses token-by-token in real time instead of all at once.
-- **Implemented beyond the brief — automatic live progress tracking:** the app can
-  optionally use screen sharing (the browser's `getDisplayMedia` API, explicit consent required)
-  to sample a reduced frame every 12 seconds while recording, sending it to OpenAI for a live,
-  privacy-filtered observation (visible action, evidence, an optional clarifying question, and a
-  suggested activity/progress update the learner must confirm — nothing updates automatically).
-  Starting a recording also starts the Study Session Tracker below, so both begin from one click.
-  When the learner stops, they choose whether (and how) to analyze the session: "Analyze (video
-  stays local)" sends only the sampled frames for a short AI summary saved to a persistent
-  "learning diary" (Supabase `screen_recordings` table) and the recorded video itself is never
-  uploaded or stored; "Analyze + upload full video" additionally uploads the recording to private
-  Supabase Storage so a copy is kept alongside the summary. A "Download locally" link always lets
-  the learner keep the raw video on their own device, entirely client-side, regardless of which
-  analysis option (if any) they choose. A companion feature — an in-app "Study Session Tracker"
-  using only Page Visibility/focus and input events (no video, no permissions, nothing ever leaves
-  the browser) — is also built, giving a time-on-activity timeline and idle/active breakdown even
-  for learners who never turn on screen sharing.
+- **Implemented beyond the brief — automatic live progress tracking.** Screen sharing (explicit
+  consent required) samples reduced frames for live, privacy-filtered observations that require
+  learner confirmation before updating progress; an in-app Study Session Tracker (Page
+  Visibility/focus events only, nothing leaves the browser) runs alongside it. See
+  [docs/architecture.md](docs/architecture.md#request-flows) for the full data flow and
+  [docs/security-and-privacy.md](docs/security-and-privacy.md#data-retention) for what is/isn't
+  persisted or uploaded.

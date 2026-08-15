@@ -88,9 +88,9 @@ tools — explicitly **not** evaluated on production-readiness or feature count.
   AI tutor chat) plus two independent real-LLM integrations. Comfortably exceeds the bar, and unlike
   the backend/infra work, this is squarely inside what the brief actually asked to be evaluated on.
 - **Documented assumptions and tradeoffs.** The brief asks explicitly for this
-  ("Explain your decisions and tradeoffs... document any assumptions"); the README's "Approach &
-  design decisions" and "Assumptions made" sections address it directly, and this document extends
-  that same practice to the cleanup pass itself.
+  ("Explain your decisions and tradeoffs... document any assumptions"); the
+  [ADR index](adr/README.md) and the README's "Operating assumptions" section address it directly,
+  and this document extends that same practice to the cleanup pass itself.
 
 **Where this arguably underdid it, relative to a "real" production repo (not the brief itself):**
 
@@ -100,9 +100,9 @@ tools — explicitly **not** evaluated on production-readiness or feature count.
 - **Direct-to-`master` commits, no PR/branch workflow.** Already called out in the README's "Git
   workflow note" as a deliberate solo/demo speed trade-off, not an oversight.
 - **Shared demo API keys/rate limits, not per-reviewer isolation.** The server-backed AI features
-  use one shared OpenAI key with global caps (see README's "Security, cost controls & abuse prevention")
-  rather than per-user provisioning — appropriate for a cost-bounded demo, not how a multi-tenant
-  product would actually be built.
+  use one shared OpenAI key with global caps (see
+  [`security-and-privacy.md`](security-and-privacy.md)) rather than per-user provisioning —
+  appropriate for a cost-bounded demo, not how a multi-tenant product would actually be built.
 
 **Net assessment:** the brief's actual, graded scope (one page, one meaningful AI interaction,
 documented assumptions, a working frontend prototype) is met and, on the AI-experience and
@@ -167,9 +167,9 @@ therefore carries real security surface area that a frontend-only mock demo woul
   aren't atomic, so a burst of concurrent requests could theoretically exceed the stated per-hour/
   per-day limits before the insert lands. Building an atomic counter (e.g. a Postgres advisory lock
   or an atomic increment-and-check function) is reasonable for a real product but is more than this
-  demo needs — the OpenAI account-level spend cap (see README's "Security, cost controls & abuse prevention")
-  is the actual backstop against runaway cost, and the rate limits are best-effort UX, not the last
-  line of defense.
+  demo needs — the OpenAI account-level spend cap (see
+  [`security-and-privacy.md`](security-and-privacy.md)) is the actual backstop against runaway
+  cost, and the rate limits are best-effort UX, not the last line of defense.
 - **Self-scoped prompt injection via user-supplied text** (e.g. course/activity titles fed into AI
   prompts). A user could try to manipulate the AI's response to *their own* request, but there's no
   path for it to affect any other user's data, session, or the server itself — worst case is a
@@ -197,9 +197,10 @@ that all six endpoints check before calling OpenAI:
   total hits **$5**, regardless of which feature or user caused it. It fails *open* (allows the
   call) if the RPC itself errors, matching the existing `chat_events_daily_count()` behavior, so a
   transient DB hiccup degrades to "no extra cap" rather than "AI features go down."
-- This sits *underneath* the OpenAI dashboard's own account-wide monthly spend limit (see README) —
-  the $5/day cap is enforced by the app itself and resets daily; the dashboard limit is the
-  final, provider-side backstop and only resets monthly.
+- This sits *underneath* the OpenAI dashboard's own account-wide monthly spend limit (see
+  [`security-and-privacy.md`](security-and-privacy.md)) — the $5/day cap is enforced by the app
+  itself and resets daily; the dashboard limit is the final, provider-side backstop and only
+  resets monthly.
 
 ## Realtime voice cost containment and abuse protection
 
