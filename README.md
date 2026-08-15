@@ -29,8 +29,9 @@ track. It shows:
 - **Activity list** — lessons, coding exercises, and quizzes with completion status. Completed
   items with AI feedback can be expanded to reveal a score, strengths, and suggestions (matching
   the "Evaluate Learner Work" example from the case study).
-- **AI tutor chat** — real mode uses a server-backed OpenAI tutor; demo mode keeps a zero-setup
-  simulated fallback and optional bring-your-own-key path.
+- **AI tutor chat** — real mode uses a server-backed OpenAI tutor that uses a Socratic teaching
+  style (guiding questions/hints before full answers on conceptual questions); demo mode keeps a
+  zero-setup simulated fallback and optional bring-your-own-key path.
 - **Adaptive learning loop** — a course diagnostic establishes topic baselines, quiz/graded-work
   evidence updates topic mastery, an SM-2-style queue schedules review, and the plan prioritizes
   due reviews and weak topics.

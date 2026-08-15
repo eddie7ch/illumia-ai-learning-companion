@@ -97,11 +97,28 @@ is transparent and unit-testable) that assembles a short, ordered plan:
 Each step is deduplicated against activities already surfaced earlier in the same plan so nothing
 appears twice.
 
+## Review queue
+
+Beyond surfacing due reviews in the learning plan text, `ReviewQueue` (real mode) lists each due
+topic from `dueTopicReviews()` with a "Review now" action that generates a fresh AI micro-quiz for
+that topic (`requestReview` in `useCourseData.ts`) and feeds the result straight back into
+`updateTopicMastery()` on submit. Quality is still derived automatically from the graded score,
+not a manual again/hard/good/easy grade — see the "Update" note on
+[ADR-0008](adr/0008-sm2-style-spaced-repetition-for-mastery.md) for how this differs from a full
+flashcard-review UI.
+
+## Socratic tutor dialogue
+
+The server-backed tutor (`api/chat.ts`) and the bring-your-own-key tutor (`src/data/liveAi.ts`)
+both use a Socratic system prompt: for conceptual questions, the tutor first asks a short guiding
+question or gives a small hint instead of stating the full answer immediately, so the learner
+reasons toward it themselves. It still answers quick factual lookups (syntax, terminology)
+directly, and gives the direct answer once the learner says they're stuck or asks for it outright.
+The simulated demo/fallback responder (`src/data/aiTutor.ts`) is unchanged — canned keyword-matched
+answers, not a live model, so Socratic prompting doesn't apply to it.
+
 ## Limitations
 
-- Mastery/review state currently lives only in learner activity/mastery records — there is no
-  separate flashcard-style review UI, so "review" surfaces as a plan/recommendation item rather
-  than its own quiz mode.
 - Quality is derived only from a single graded score per activity; it doesn't yet account for
   response time, hint usage, or repeated attempts.
 - This is an explainable heuristic, not a validated spaced-repetition study — see "Possible next
