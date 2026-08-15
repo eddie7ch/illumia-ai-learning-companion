@@ -6,7 +6,12 @@ A frontend prototype of an **AI Learning Companion** that helps a learner unders
 progress, strengths, and areas for improvement, and get personalized AI-powered guidance on
 what to learn next — built for the Illumia software engineering case study.
 
-![Dashboard screenshot showing progress, score trend, strengths, recommended next step, learning plan, and AI tutor chat in dark mode](docs/screenshot.png)
+![Dashboard screenshot showing the study session tracker, screen learning observer, and live AI tutor chat with voice tutor in dark mode](docs/screenshot.png)
+
+> The screenshot above is the optional "real mode" (signed-in, Supabase + OpenAI-backed)
+> experience — clicking "Live demo" now takes you to its sign-in screen. The frontend-only,
+> no-login "demo mode" described throughout this README (and required by the brief) is what
+> you get by running the app locally without Supabase configured — see "Getting started".
 
 ## What this is
 
