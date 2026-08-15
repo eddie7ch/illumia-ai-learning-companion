@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { AI_BUDGET_EXCEEDED_MESSAGE, isWithinDailyAiBudget, recordAiUsage } from './_aiBudget.js';
 
 const MAX_SUBMISSION_LENGTH = 8000;
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
@@ -59,6 +60,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(429).json({ error: 'AI grading rate limit reached. Please try again later.' });
     return;
   }
+  if (!(await isWithinDailyAiBudget(supabase))) {
+    res.status(429).json({ error: AI_BUDGET_EXCEEDED_MESSAGE });
+    return;
+  }
 
   const { title, topic, type, submission } = req.body ?? {};
   if (
@@ -106,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     const raw = data.choices?.[0]?.message?.content;
     const parsed = raw ? JSON.parse(raw) : null;
     if (
@@ -120,6 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     await supabase.from('grading_events').insert({ user_id: userId });
+    await recordAiUsage(supabase, userId, 'grade', data.usage);
 
     res.status(200).json({
       score: Math.max(0, Math.min(100, Math.round(parsed.score))),

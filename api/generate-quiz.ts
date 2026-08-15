@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { AI_BUDGET_EXCEEDED_MESSAGE, isWithinDailyAiBudget, recordAiUsage } from './_aiBudget.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const HOURLY_LIMIT = 15;
@@ -61,6 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(429).json({ error: 'AI rate limit reached. Please try again later.' });
     return;
   }
+  if (!(await isWithinDailyAiBudget(supabase))) {
+    res.status(429).json({ error: AI_BUDGET_EXCEEDED_MESSAGE });
+    return;
+  }
 
   const { title, topic, courseTitle } = req.body ?? {};
   if (typeof title !== 'string' || typeof topic !== 'string' || !title.trim() || !topic.trim()) {
@@ -108,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     const raw = data.choices?.[0]?.message?.content;
     const parsed = raw ? JSON.parse(raw) : null;
     const questions: unknown[] = Array.isArray(parsed?.questions) ? parsed.questions : [];
@@ -148,6 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     await supabase.from('grading_events').insert({ user_id: userId });
+    await recordAiUsage(supabase, userId, 'quiz', data.usage);
 
     res.status(200).json({ questions: sanitized });
   } catch {

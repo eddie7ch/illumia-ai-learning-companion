@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { AI_BUDGET_EXCEEDED_MESSAGE, isWithinDailyAiBudget, recordAiUsage } from './_aiBudget.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -26,6 +27,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { data: userData } = await supabase.auth.getUser(token);
   if (!userData.user) {
     res.status(401).json({ error: 'Invalid or expired session.' });
+    return;
+  }
+  const userId = userData.user.id;
+  if (!(await isWithinDailyAiBudget(supabase))) {
+    res.status(429).json({ error: AI_BUDGET_EXCEEDED_MESSAGE });
     return;
   }
   const { courseTitle, topics } = req.body ?? {};
@@ -61,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(502).json({ error: 'The AI diagnostic service failed.' });
       return;
     }
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     const content = data.choices?.[0]?.message?.content;
     const raw = content ? JSON.parse(content) : null;
     const questions = Array.isArray(raw?.questions) ? raw.questions : [];
@@ -81,6 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(502).json({ error: 'The AI diagnostic returned incomplete questions.' });
       return;
     }
+    await recordAiUsage(supabase, userId, 'diagnostic', data.usage);
     res.status(200).json({ questions: sanitized });
   } catch {
     res.status(502).json({ error: 'Could not generate the diagnostic.' });

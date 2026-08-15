@@ -118,6 +118,42 @@ $$;
 revoke all on function chat_events_daily_count() from public;
 grant execute on function chat_events_daily_count() to authenticated;
 
+-- Logs one row per OpenAI call made by ANY /api/* endpoint (chat, grade, quiz, diagnostic,
+-- screen observation, session summary), with a rough estimated USD cost. Used to enforce a single
+-- shared global daily spend cap across every AI feature combined (see api/_lib/aiBudget.ts).
+create table if not exists ai_usage_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  endpoint text not null,
+  estimated_cost_usd numeric(10, 6) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists ai_usage_events_created_at_idx on ai_usage_events (created_at);
+
+alter table ai_usage_events enable row level security;
+
+-- Same pattern as chat_events above: owners can only read/insert their own rows directly; the
+-- cross-user daily total is only obtainable via the SECURITY DEFINER function below.
+drop policy if exists "ai_usage_events: owner read" on ai_usage_events;
+create policy "ai_usage_events: owner read" on ai_usage_events for select using (auth.uid() = user_id);
+drop policy if exists "ai_usage_events: insert own" on ai_usage_events;
+create policy "ai_usage_events: insert own" on ai_usage_events for insert with check (auth.uid() = user_id);
+
+-- Lets any signed-in user learn the shared global estimated daily AI spend (needed to enforce
+-- DAILY_AI_BUDGET_USD in api/_lib/aiBudget.ts) without granting cross-user SELECT access.
+create or replace function ai_usage_daily_cost_usd()
+returns numeric
+language sql
+security definer
+set search_path = public
+as $$
+  select coalesce(sum(estimated_cost_usd), 0) from ai_usage_events where created_at >= now() - interval '24 hours';
+$$;
+
+revoke all on function ai_usage_daily_cost_usd() from public;
+grant execute on function ai_usage_daily_cost_usd() to authenticated;
+
 -- Private screen recordings created only after explicit learner consent. storage_path is null
 -- for "learning diary" entries, which save only a short AI summary and never the video itself.
 create table if not exists screen_recordings (

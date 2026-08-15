@@ -5,6 +5,7 @@ import type { Activity, AiFeedback, ChatMessage, QuizQuestion } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import QuizRunner from './QuizRunner';
 import type { QuizResult } from './QuizRunner';
+import RealtimeVoiceTutor from './RealtimeVoiceTutor';
 
 const QUICK_PROMPTS = [
   'Why is my score low on this activity?',
@@ -313,6 +314,12 @@ export default function AiTutorChat({
                 is cleared on reload. Leave blank to keep using the shared demo AI (or simulated
                 responses if it isn't configured).
               </p>
+            </div>
+          )}
+
+          {isSupabaseConfigured && (
+            <div className="mt-3">
+              <RealtimeVoiceTutor activities={activities ?? []} />
             </div>
           )}
 

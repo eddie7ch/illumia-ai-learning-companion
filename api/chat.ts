@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { AI_BUDGET_EXCEEDED_MESSAGE, isWithinDailyAiBudget, recordAiUsage } from './_aiBudget.js';
 
 const MAX_QUESTION_LENGTH = 2000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -76,6 +77,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(429).json({ error: 'This demo has reached its shared AI chat limit for today. Please try again tomorrow.' });
     return;
   }
+  if (!(await isWithinDailyAiBudget(supabase))) {
+    res.status(429).json({ error: AI_BUDGET_EXCEEDED_MESSAGE });
+    return;
+  }
 
   const { question, history, context } = req.body ?? {};
   if (typeof question !== 'string' || !question.trim() || question.length > MAX_QUESTION_LENGTH) {
@@ -118,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     const text = data.choices?.[0]?.message?.content?.trim();
     if (!text) {
       res.status(502).json({ error: 'The AI chat service returned an empty response.' });
@@ -126,6 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     await supabase.from('chat_events').insert({ user_id: userId });
+    await recordAiUsage(supabase, userId, 'chat', data.usage);
 
     res.status(200).json({ text });
   } catch {
