@@ -30,9 +30,13 @@ were chosen over alternatives, see the [ADR index](adr/README.md).
 
 | Feature | Limit | Enforced by |
 |---|---|---|
-| AI grading | 15 calls/hour, 50/day per user | `grading_events` table + owner-scoped RLS |
-| Server-backed tutor chat | 100 replies/day, shared across all users | `chat_events` table + `chat_events_daily_count()` |
-| Realtime voice session starts | 3/hour, 10/day per user | `chat_events` table (shared with chat's rate-limit pattern) |
+| AI grading (`api/grade.ts`) | 15 calls/hour, 50/day per user | `grading_events` table + owner-scoped RLS |
+| AI quiz generation (`api/generate-quiz.ts`) | Shares the same 15/hour, 50/day per-user pool as AI grading | `grading_events` table (same counter as above) |
+| AI diagnostic generation (`api/generate-diagnostic.ts`) | No dedicated per-user limit | Relies solely on the shared $5/day budget cap below |
+| Screen observation (`api/observe-screen.ts`) | 120 calls/hour, 500/day per user | `screen_observation_events` table + owner-scoped RLS |
+| Session summary save (`api/save-session-summary.ts`) | 15 calls/hour, 40/day per user | `screen_recordings` table + owner-scoped RLS |
+| Server-backed tutor chat (`api/chat.ts`) | 100 replies/day, shared across all users | `chat_events` table + `chat_events_daily_count()` |
+| Realtime voice session starts (`api/realtime-session.ts`) | 3/hour, 10/day per user | `chat_events` table — reuses the same table and rows as tutor chat above, so each voice session start also counts against the shared 100/day tutor-chat cap |
 
 Requests over a limit return `429` before any OpenAI call is made.
 

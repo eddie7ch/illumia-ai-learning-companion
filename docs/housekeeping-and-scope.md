@@ -30,10 +30,10 @@ Nothing here changes runtime behavior.
   API-route type definitions, for a package whose vulnerable code is never actually reachable at
   runtime. Breaking the build to silence a devDependency-only, unreachable finding is a worse
   trade than leaving it and documenting why.
-- **No CI pipeline (e.g. GitHub Actions).** Would be reasonable on a real project, but this is a
-  3–6-hour take-home exercise per the brief; the equivalent value (fast, visible feedback that the
-  build/tests/lint are green) is already provided locally and re-checked before every deploy. Listed
-  as a "possible next step" in the README rather than built, so the reasoning is visible either way.
+- **No CI pipeline (e.g. GitHub Actions), at the time of this pass.** Would be reasonable on a real
+  project, but this is a 3–6-hour take-home exercise per the brief; the equivalent value (fast,
+  visible feedback that the build/tests/lint are green) was already provided locally and re-checked
+  before every deploy. (Update: added later — see "Hardening pass after the incident" below.)
 - **No folder restructuring.** The current `components/` / `data/` / `hooks/` / `services/` /
   `types/` split is conventional, already discoverable, and every file in it is used (verified by
   searching for references before writing this doc). Reorganizing into e.g. feature folders would
@@ -94,9 +94,11 @@ tools — explicitly **not** evaluated on production-readiness or feature count.
 
 **Where this arguably underdid it, relative to a "real" production repo (not the brief itself):**
 
-- **No CI, no committed end-to-end test suite.** Verification (Playwright checks against the live
+- **No committed end-to-end test suite.** Verification (Playwright checks against the live
   deploy) happened ad hoc during development, not as a saved, repeatable suite. Reasonable for a
-  take-home, but worth naming rather than leaving implicit.
+  take-home, but worth naming rather than leaving implicit. (A CI workflow for lint/unit-test/build
+  was added later — see "Hardening pass after the incident" below — but it doesn't include these
+  ad hoc end-to-end checks.)
 - **Direct-to-`master` commits, no PR/branch workflow.** Already called out in the README's "Git
   workflow note" as a deliberate solo/demo speed trade-off, not an oversight.
 - **Shared demo API keys/rate limits, not per-reviewer isolation.** The server-backed AI features

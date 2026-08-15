@@ -88,7 +88,8 @@ how AI should show up in the experience, and what assumptions to make — were m
 and are documented above and below, not left to the AI tool's default suggestions.
 
 **Git workflow note.** Early prototype commits favored speed; later features use validated feature
-branches before merging to `master`. A team project would additionally require PR review and CI.
+branches before merging to `master`, and CI (lint/test/build) runs on every push and pull request.
+A team project would additionally require mandatory PR review.
 
 ## Tech stack
 
