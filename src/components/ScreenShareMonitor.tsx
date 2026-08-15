@@ -40,7 +40,7 @@ function preferredMimeType(): string | undefined {
 }
 
 export default function ScreenShareMonitor({ activities, onConfirmProgress }: ScreenShareMonitorProps) {
-  const { setExternalAway } = useStudySession();
+  const { phase, startSession, setExternalAway } = useStudySession();
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [hasConsent, setHasConsent] = useState(false);
   const [liveObservationEnabled, setLiveObservationEnabled] = useState(true);
@@ -262,6 +262,8 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
       return;
     }
 
+    if (phase !== 'active') startSession();
+
     setRecordingState('requesting');
     setError(null);
     setObserverError(null);
@@ -392,7 +394,8 @@ export default function ScreenShareMonitor({ activities, onConfirmProgress }: Sc
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Screen learning observer</h3>
           <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
             Analyze one reduced frame every 12 seconds while recording. When you stop, a short AI summary of what
-            you learned is saved to your learning diary below — the video itself is never uploaded or stored.
+            you learned is saved to your learning diary below — the video itself is never uploaded or stored. This
+            also starts your study session timer above.
           </p>
         </div>
         {recordingState === 'recording' ? (
