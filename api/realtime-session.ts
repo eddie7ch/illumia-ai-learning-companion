@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { REALTIME_SESSION_BUDGET_USD } from './_aiBudget.js';
 
 const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/calls';
 const MAX_SDP_LENGTH = 100_000;
@@ -45,6 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
   const userId = userData.user.id;
+  const sessionId = crypto.randomUUID();
 
   const body = req.body as unknown;
   const sdp =
@@ -76,9 +78,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  const { data: reserved, error: reservationError } = await supabase.rpc('reserve_realtime_ai_budget', {
+    p_session_id: sessionId,
+    p_reservation_usd: REALTIME_SESSION_BUDGET_USD,
+  });
+  if (reservationError) {
+    res.status(503).json({ error: 'Voice budget enforcement is unavailable. Please try again later.' });
+    return;
+  }
+  if (!reserved) {
+    res.status(429).json({ error: 'This demo has reached its shared $5 AI budget for today.' });
+    return;
+  }
+
   const session = {
     type: 'realtime',
-    model: 'gpt-realtime-2.1',
+    model: 'gpt-realtime-2.1-mini',
     output_modalities: ['audio'],
     instructions: learningContext ? `${BASE_INSTRUCTIONS}\n\nLearner context:\n${learningContext}` : BASE_INSTRUCTIONS,
     audio: {
@@ -114,6 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     res.setHeader('Content-Type', 'application/sdp');
+    res.setHeader('X-Realtime-Session-Id', sessionId);
+    res.setHeader('X-Realtime-Session-Budget-Usd', String(REALTIME_SESSION_BUDGET_USD));
     res.status(200).send(answer);
   } catch {
     res.status(502).json({ error: 'Could not reach the live voice service.' });

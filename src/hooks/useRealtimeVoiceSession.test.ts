@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRealtimeVoiceSession } from './useRealtimeVoiceSession';
 
@@ -43,7 +43,24 @@ describe('useRealtimeVoiceSession', () => {
       value: { getUserMedia: vi.fn().mockResolvedValue(stream) },
     });
     vi.stubGlobal('RTCPeerConnection', FakePeerConnection);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('v=0 answer', { status: 200, headers: { 'Content-Type': 'application/sdp' } })));
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes('realtime-session')) {
+        return new Response('v=0 answer', {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/sdp',
+            'X-Realtime-Session-Id': '11111111-1111-4111-8111-111111111111',
+          },
+        });
+      }
+      return Response.json({
+        allowed: true,
+        sessionCostUsd: 0.01,
+        sessionLimitUsd: 0.75,
+        dailyCostUsd: 1.25,
+        dailyLimitUsd: 5,
+      });
+    }));
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
   });
@@ -66,6 +83,30 @@ describe('useRealtimeVoiceSession', () => {
       { id: 'user-1', role: 'learner', text: 'Explain state', final: true },
       { id: 'ai-1', role: 'ai', text: 'State stores changing data.', final: true },
     ]);
+
+    act(() => peer.channel.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({
+      type: 'response.done',
+      response: {
+        usage: {
+          input_tokens: 180,
+          output_tokens: 90,
+          input_token_details: { text_tokens: 20, audio_tokens: 100, image_tokens: 60 },
+          output_token_details: { text_tokens: 10, audio_tokens: 80 },
+        },
+      },
+    }) })));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/realtime-usage', expect.objectContaining({
+      body: JSON.stringify({
+        sessionId: '11111111-1111-4111-8111-111111111111',
+        usage: {
+          textInputTokens: 20,
+          textOutputTokens: 10,
+          audioInputTokens: 100,
+          audioOutputTokens: 80,
+          imageInputTokens: 60,
+        },
+      }),
+    })));
   });
 
   it('mutes, interrupts, and releases every media resource', async () => {
@@ -95,5 +136,28 @@ describe('useRealtimeVoiceSession', () => {
     expect(stopTrack).toHaveBeenCalled();
     expect(peer.close).toHaveBeenCalled();
     expect(peer.channel.close).toHaveBeenCalled();
+  });
+
+  it('stops immediately when the combined budget is exhausted', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).includes('realtime-session')) {
+        return new Response('v=0 answer', {
+          status: 200,
+          headers: { 'X-Realtime-Session-Id': '22222222-2222-4222-8222-222222222222' },
+        });
+      }
+      return Response.json({
+        allowed: false,
+        sessionCostUsd: 0.75,
+        sessionLimitUsd: 0.75,
+        dailyCostUsd: 5,
+        dailyLimitUsd: 5,
+      });
+    });
+    const { result } = renderHook(() => useRealtimeVoiceSession());
+    await act(async () => result.current.start('Budget test'));
+    expect(result.current.phase).toBe('idle');
+    expect(result.current.error).toMatch(/spending limit was reached/i);
+    expect(stopTrack).toHaveBeenCalled();
   });
 });

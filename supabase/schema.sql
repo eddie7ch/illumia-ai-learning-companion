@@ -126,8 +126,38 @@ create table if not exists ai_usage_events (
   user_id uuid not null references auth.users (id) on delete cascade,
   endpoint text not null,
   estimated_cost_usd numeric(10, 6) not null default 0,
+  session_id uuid,
+  reservation_usd numeric(10, 6) not null default 0,
+  actual_cost_usd numeric(10, 6) not null default 0,
+  text_input_tokens bigint not null default 0,
+  text_output_tokens bigint not null default 0,
+  audio_input_tokens bigint not null default 0,
+  audio_output_tokens bigint not null default 0,
+  image_input_tokens bigint not null default 0,
+  text_input_cost_usd numeric(10, 6) not null default 0,
+  text_output_cost_usd numeric(10, 6) not null default 0,
+  audio_input_cost_usd numeric(10, 6) not null default 0,
+  audio_output_cost_usd numeric(10, 6) not null default 0,
+  image_input_cost_usd numeric(10, 6) not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table ai_usage_events add column if not exists session_id uuid;
+alter table ai_usage_events add column if not exists reservation_usd numeric(10, 6) not null default 0;
+alter table ai_usage_events add column if not exists actual_cost_usd numeric(10, 6) not null default 0;
+alter table ai_usage_events add column if not exists text_input_tokens bigint not null default 0;
+alter table ai_usage_events add column if not exists text_output_tokens bigint not null default 0;
+alter table ai_usage_events add column if not exists audio_input_tokens bigint not null default 0;
+alter table ai_usage_events add column if not exists audio_output_tokens bigint not null default 0;
+alter table ai_usage_events add column if not exists image_input_tokens bigint not null default 0;
+alter table ai_usage_events add column if not exists text_input_cost_usd numeric(10, 6) not null default 0;
+alter table ai_usage_events add column if not exists text_output_cost_usd numeric(10, 6) not null default 0;
+alter table ai_usage_events add column if not exists audio_input_cost_usd numeric(10, 6) not null default 0;
+alter table ai_usage_events add column if not exists audio_output_cost_usd numeric(10, 6) not null default 0;
+alter table ai_usage_events add column if not exists image_input_cost_usd numeric(10, 6) not null default 0;
+
+create unique index if not exists ai_usage_events_user_session_idx
+  on ai_usage_events (user_id, session_id) where session_id is not null;
 
 create index if not exists ai_usage_events_created_at_idx on ai_usage_events (created_at);
 
@@ -139,6 +169,10 @@ drop policy if exists "ai_usage_events: owner read" on ai_usage_events;
 create policy "ai_usage_events: owner read" on ai_usage_events for select using (auth.uid() = user_id);
 drop policy if exists "ai_usage_events: insert own" on ai_usage_events;
 create policy "ai_usage_events: insert own" on ai_usage_events for insert with check (auth.uid() = user_id);
+drop policy if exists "ai_usage_events: update own" on ai_usage_events;
+create policy "ai_usage_events: update own" on ai_usage_events for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- Lets any signed-in user learn the shared global estimated daily AI spend (needed to enforce
 -- DAILY_AI_BUDGET_USD in api/_lib/aiBudget.ts) without granting cross-user SELECT access.
@@ -153,6 +187,34 @@ $$;
 
 revoke all on function ai_usage_daily_cost_usd() from public;
 grant execute on function ai_usage_daily_cost_usd() to authenticated;
+
+create or replace function reserve_realtime_ai_budget(p_session_id uuid, p_reservation_usd numeric)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_cost numeric;
+begin
+  if auth.uid() is null or p_session_id is null or p_reservation_usd <> 0.75 then
+    return false;
+  end if;
+  perform pg_advisory_xact_lock(724615);
+  select coalesce(sum(estimated_cost_usd), 0) into current_cost
+  from ai_usage_events where created_at >= now() - interval '24 hours';
+  if current_cost + p_reservation_usd > 5 then return false; end if;
+  insert into ai_usage_events (
+    user_id, endpoint, session_id, reservation_usd, estimated_cost_usd
+  ) values (
+    auth.uid(), 'realtime-voice', p_session_id, p_reservation_usd, p_reservation_usd
+  );
+  return true;
+end;
+$$;
+
+revoke all on function reserve_realtime_ai_budget(uuid, numeric) from public;
+grant execute on function reserve_realtime_ai_budget(uuid, numeric) to authenticated;
 
 -- Private screen recordings created only after explicit learner consent. storage_path is null
 -- for "learning diary" entries, which save only a short AI summary and never the video itself.

@@ -151,8 +151,8 @@ Security notes (this is a demo pattern, not a production one):
   proxy this call through a backend so the key never reaches the client.
 - If the request fails (bad key, network error, timeout), the chat automatically falls back to
   the simulated responder and shows an inline notice rather than breaking the experience.
-- Live voice sessions are rate-limited and automatically stop after 15 minutes. Screen context
-  reaches voice only after explicit opt-in and contains sanitized observation text, not media.
+- Live voice uses `gpt-realtime-2.1-mini`, is rate-limited, reserves $0.75 before connecting, and
+  automatically stops after 10 minutes. Screen images reach voice only after explicit opt-in.
 
 ## Real mode (optional): accounts, persistence, and AI-graded courses
 
@@ -232,14 +232,17 @@ protection keep costs bounded even if the app is left publicly reachable:
   `ai_usage_events` table. Before making an OpenAI call, every endpoint checks the combined
   estimated spend across all of them for the last 24 hours (via the `ai_usage_daily_cost_usd()`
   Postgres function) and returns a `429` once it reaches **$5**, regardless of which feature or
-  user is responsible — a hard demo-wide ceiling on top of the per-feature limits above.
+  user is responsible. Realtime voice fails closed unless an atomic **$0.75 reservation** succeeds;
+  each `response.done` stores separate text/audio/image token counts and costs, and a 5-second
+  heartbeat stops WebRTC at the session or combined daily ceiling. Reservations never reconcile
+  below $0.75, intentionally overcounting rather than risking an unexpected bill.
 - **OpenAI account-wide spend limit** — a hard monthly budget (with a hard-enforcement toggle, not
   just an alert) is set directly in the OpenAI dashboard at
   [platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits).
   Once total spend across *all* keys on the account hits the limit, further API requests fail with
   `429` regardless of what the app's own rate limiting does. This is the backstop against bugs or
-  limits being bypassed. Recommended for anyone self-hosting this: set a small limit (e.g. $10/month)
-  and enable "Enforce a hard limit".
+  limits being bypassed. This deployment is verified at **$10/month** with **Enforce a hard
+  limit** enabled.
 
 Both are independent of the client-side "bring your own key" tutor chat (`src/data/liveAi.ts`) —
 that feature uses a key the learner supplies themselves in their own browser session, so it can't

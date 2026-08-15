@@ -17,7 +17,38 @@ interface RealtimeEvent {
   delta?: string;
   transcript?: string;
   error?: { message?: string };
+  response?: {
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      input_token_details?: { text_tokens?: number; audio_tokens?: number; image_tokens?: number };
+      output_token_details?: { text_tokens?: number; audio_tokens?: number };
+    };
+  };
 }
+
+interface RealtimeUsageTotals {
+  textInputTokens: number;
+  textOutputTokens: number;
+  audioInputTokens: number;
+  audioOutputTokens: number;
+  imageInputTokens: number;
+}
+
+interface RealtimeBudgetStatus {
+  sessionCostUsd: number;
+  sessionLimitUsd: number;
+  dailyCostUsd: number;
+  dailyLimitUsd: number;
+}
+
+const EMPTY_USAGE: RealtimeUsageTotals = {
+  textInputTokens: 0,
+  textOutputTokens: 0,
+  audioInputTokens: 0,
+  audioOutputTokens: 0,
+  imageInputTokens: 0,
+};
 
 export function useRealtimeVoiceSession() {
   const [phase, setPhase] = useState<RealtimeVoicePhase>('idle');
@@ -25,6 +56,7 @@ export function useRealtimeVoiceSession() {
   const [isMuted, setIsMuted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [budgetStatus, setBudgetStatus] = useState<RealtimeBudgetStatus | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -32,6 +64,44 @@ export function useRealtimeVoiceSession() {
   const activeRef = useRef(false);
   const elapsedTimerRef = useRef<number | null>(null);
   const sessionTimeoutRef = useRef<number | null>(null);
+  const budgetTimerRef = useRef<number | null>(null);
+  const authTokenRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const usageTotalsRef = useRef<RealtimeUsageTotals>({ ...EMPTY_USAGE });
+  const stopRef = useRef<() => void>(() => {});
+
+  const reportUsageAndCheckBudget = useCallback(async (includeUsage: boolean) => {
+    const token = authTokenRef.current;
+    const sessionId = sessionIdRef.current;
+    if (!token || !sessionId) return;
+    try {
+      const response = await fetch('/api/realtime-usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          sessionId,
+          ...(includeUsage ? { usage: usageTotalsRef.current } : {}),
+        }),
+      });
+      const result = await response.json().catch(() => null) as
+        | (RealtimeBudgetStatus & { allowed: boolean; error?: string })
+        | null;
+      if (!response.ok || !result) throw new Error(result?.error || 'Voice budget status is unavailable.');
+      setBudgetStatus({
+        sessionCostUsd: result.sessionCostUsd,
+        sessionLimitUsd: result.sessionLimitUsd,
+        dailyCostUsd: result.dailyCostUsd,
+        dailyLimitUsd: result.dailyLimitUsd,
+      });
+      if (!result.allowed) {
+        stopRef.current();
+        setError('Voice session stopped because the AI spending limit was reached.');
+      }
+    } catch {
+      stopRef.current();
+      setError('Voice session stopped because budget enforcement became unavailable.');
+    }
+  }, []);
 
   const updateTranscript = useCallback((id: string, role: 'learner' | 'ai', text: string, final: boolean) => {
     if (!text) return;
@@ -55,9 +125,30 @@ export function useRealtimeVoiceSession() {
     switch (event.type) {
       case 'session.created':
       case 'session.updated':
-      case 'response.done':
         setPhase('listening');
         break;
+      case 'response.done': {
+        setPhase('listening');
+        const usage = event.response?.usage;
+        if (usage) {
+          const inputDetails = usage.input_token_details ?? {};
+          const outputDetails = usage.output_token_details ?? {};
+          const audioInput = inputDetails.audio_tokens ?? 0;
+          const imageInput = inputDetails.image_tokens ?? 0;
+          const textInput = inputDetails.text_tokens ?? Math.max(0, (usage.input_tokens ?? 0) - audioInput - imageInput);
+          const audioOutput = outputDetails.audio_tokens ?? 0;
+          const textOutput = outputDetails.text_tokens ?? Math.max(0, (usage.output_tokens ?? 0) - audioOutput);
+          usageTotalsRef.current = {
+            textInputTokens: usageTotalsRef.current.textInputTokens + textInput,
+            textOutputTokens: usageTotalsRef.current.textOutputTokens + textOutput,
+            audioInputTokens: usageTotalsRef.current.audioInputTokens + audioInput,
+            audioOutputTokens: usageTotalsRef.current.audioOutputTokens + audioOutput,
+            imageInputTokens: usageTotalsRef.current.imageInputTokens + imageInput,
+          };
+          void reportUsageAndCheckBudget(true);
+        }
+        break;
+      }
       case 'input_audio_buffer.speech_started':
         setPhase('listening');
         break;
@@ -83,14 +174,16 @@ export function useRealtimeVoiceSession() {
         setPhase('error');
         break;
     }
-  }, [updateTranscript]);
+  }, [reportUsageAndCheckBudget, updateTranscript]);
 
   const stop = useCallback(() => {
     activeRef.current = false;
     if (elapsedTimerRef.current !== null) window.clearInterval(elapsedTimerRef.current);
     if (sessionTimeoutRef.current !== null) window.clearTimeout(sessionTimeoutRef.current);
+    if (budgetTimerRef.current !== null) window.clearInterval(budgetTimerRef.current);
     elapsedTimerRef.current = null;
     sessionTimeoutRef.current = null;
+    budgetTimerRef.current = null;
     channelRef.current?.close();
     channelRef.current = null;
     peerRef.current?.close();
@@ -105,8 +198,13 @@ export function useRealtimeVoiceSession() {
     }
     setIsMuted(false);
     setElapsedSeconds(0);
+    authTokenRef.current = null;
+    sessionIdRef.current = null;
+    usageTotalsRef.current = { ...EMPTY_USAGE };
     setPhase('idle');
   }, []);
+
+  stopRef.current = stop;
 
   useEffect(() => stop, [stop]);
 
@@ -122,12 +220,14 @@ export function useRealtimeVoiceSession() {
       return;
     }
     setError(null);
+    setBudgetStatus(null);
     setTranscripts([]);
     setPhase('connecting');
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (!token) throw new Error('Sign in before starting the live voice tutor.');
+      authTokenRef.current = token;
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -167,15 +267,23 @@ export function useRealtimeVoiceSession() {
         const body = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(body?.error || 'The live voice session could not start.');
       }
+      const sessionId = response.headers.get('X-Realtime-Session-Id');
+      if (!sessionId) throw new Error('Voice budget reservation was not returned by the server.');
+      sessionIdRef.current = sessionId;
       await peer.setRemoteDescription({ type: 'answer', sdp: await response.text() });
       const startedAt = Date.now();
       elapsedTimerRef.current = window.setInterval(() => {
         setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
       }, 1000);
+      budgetTimerRef.current = window.setInterval(() => {
+        void reportUsageAndCheckBudget(false);
+      }, 5000);
+      await reportUsageAndCheckBudget(false);
+      if (!activeRef.current) return;
       sessionTimeoutRef.current = window.setTimeout(() => {
         stop();
-        setError('Voice session ended automatically after 15 minutes.');
-      }, 15 * 60 * 1000);
+        setError('Voice session ended automatically after 10 minutes.');
+      }, 10 * 60 * 1000);
     } catch (caughtError) {
       stop();
       setError(
@@ -187,7 +295,7 @@ export function useRealtimeVoiceSession() {
       );
       setPhase('error');
     }
-  }, [handleEvent, stop]);
+  }, [handleEvent, reportUsageAndCheckBudget, stop]);
 
   const toggleMute = useCallback(() => {
     const track = streamRef.current?.getAudioTracks()[0];
@@ -254,6 +362,7 @@ export function useRealtimeVoiceSession() {
     transcripts,
     isMuted,
     elapsedSeconds,
+    budgetStatus,
     error,
     start,
     stop,

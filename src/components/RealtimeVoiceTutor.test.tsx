@@ -30,7 +30,7 @@ describe('RealtimeVoiceTutor', () => {
   });
 
   it('starts a context-grounded voice session', async () => {
-    vi.mocked(useRealtimeVoiceSession).mockReturnValue({ phase: 'idle', transcripts: [], isMuted: false, elapsedSeconds: 0, error: null, ...controls });
+    vi.mocked(useRealtimeVoiceSession).mockReturnValue({ phase: 'idle', transcripts: [], isMuted: false, elapsedSeconds: 0, budgetStatus: null, error: null, ...controls });
     const user = userEvent.setup();
     render(<RealtimeVoiceTutor activities={[{ id: '1', title: 'State lesson', topic: 'State', type: 'lesson', status: 'in-progress' }]} />);
     await user.click(screen.getByRole('button', { name: /start live voice/i }));
@@ -43,6 +43,7 @@ describe('RealtimeVoiceTutor', () => {
       transcripts: [{ id: '1', role: 'ai', text: 'What happens when state changes?', final: true }],
       isMuted: false,
       elapsedSeconds: 42,
+      budgetStatus: null,
       error: null,
       ...controls,
     });
@@ -69,7 +70,7 @@ describe('RealtimeVoiceTutor', () => {
       imageDataUrl: 'data:image/jpeg;base64,frame',
     };
     vi.mocked(useRealtimeVoiceSession).mockReturnValue({
-      phase: 'listening', transcripts: [], isMuted: false, elapsedSeconds: 12, error: null, ...controls,
+      phase: 'listening', transcripts: [], isMuted: false, elapsedSeconds: 12, budgetStatus: null, error: null, ...controls,
     });
     vi.mocked(useScreenObservation).mockReturnValue({
       latestObservation: observation,

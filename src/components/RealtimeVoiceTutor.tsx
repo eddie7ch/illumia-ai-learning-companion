@@ -140,6 +140,11 @@ export default function RealtimeVoiceTutor({ activities }: RealtimeVoiceTutorPro
       </div>
 
       {voice.error && <p role="alert" className="mt-2 text-xs text-rose-600 dark:text-rose-400">{voice.error}</p>}
+      {voice.budgetStatus && (
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          Voice session: ${voice.budgetStatus.sessionCostUsd.toFixed(3)} / ${voice.budgetStatus.sessionLimitUsd.toFixed(2)} · Daily AI: ${voice.budgetStatus.dailyCostUsd.toFixed(2)} / ${voice.budgetStatus.dailyLimitUsd.toFixed(2)}
+        </p>
+      )}
       {voice.transcripts.length > 0 && (
         <div className="mt-3 max-h-36 space-y-1 overflow-y-auto rounded-md bg-slate-50 p-2 text-xs dark:bg-slate-900/50">
           {voice.transcripts.map((item) => (
