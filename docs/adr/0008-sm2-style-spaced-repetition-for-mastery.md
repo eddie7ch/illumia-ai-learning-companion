@@ -42,3 +42,12 @@ growth, lapse handling) is well-documented prior art rather than a novel, unveri
 (no distinction between, say, a slow-but-correct answer and a fast-and-confident one); this is an
 explainable heuristic that hasn't been validated against real retention outcomes — noted as a
 "possible next step" in the [README](../../README.md).
+
+## Update (2026-08-15)
+
+A lightweight in-dashboard review surface was added: `ReviewQueue.tsx` lists topics from
+`dueTopicReviews()` and lets the learner start an on-demand, AI-generated micro-quiz per due
+topic (real mode only), feeding the result straight back into `updateTopicMastery()`. This isn't
+the separate flashcard-style review mode this ADR rejected above — it stays inside the
+single-page dashboard and quality is still derived automatically from the graded score, not a
+manual again/hard/good/easy grade — so the "Alternatives considered" reasoning above still holds.
