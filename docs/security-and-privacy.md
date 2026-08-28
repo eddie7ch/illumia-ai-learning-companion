@@ -9,14 +9,14 @@ were chosen over alternatives, see the [ADR index](adr/README.md).
 ## Authentication and data isolation
 
 - Every server-backed AI endpoint (`api/*.ts`) independently verifies the caller's Supabase bearer
-  token via `supabase.auth.getUser(token)` — the returned `user.id` is the only source of truth for
+  token via `supabase.auth.getUser(token)`: the returned `user.id` is the only source of truth for
   whose request this is; a client-supplied ID is never trusted.
 - All learner data (`courses`, `activities`, `profiles`, mastery, diary, usage, rate-limit tables)
   is protected by Postgres Row Level Security scoped to `auth.uid() = user_id`. This is the actual
-  access-control boundary — enforced at the database layer, not just in application code.
+  access-control boundary, enforced at the database layer, not just in application code.
 - The `OPENAI_API_KEY` is a server-only environment variable. It is never sent to, embedded in, or
   readable from the browser bundle.
-- The Supabase `service_role` key is never used anywhere in this codebase, client or server —
+- The Supabase `service_role` key is never used anywhere in this codebase, client or server;
   every server call still goes through the caller's own JWT so RLS still applies.
 - HTTP security headers (`vercel.json`) set Content-Security-Policy, `X-Frame-Options`,
   `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`, restricting framing,
@@ -36,7 +36,7 @@ were chosen over alternatives, see the [ADR index](adr/README.md).
 | Screen observation (`api/observe-screen.ts`) | 120 calls/hour, 500/day per user | `screen_observation_events` table + owner-scoped RLS |
 | Session summary save (`api/save-session-summary.ts`) | 15 calls/hour, 40/day per user | `screen_recordings` table + owner-scoped RLS |
 | Server-backed tutor chat (`api/chat.ts`) | 100 replies/day, shared across all users | `chat_events` table + `chat_events_daily_count()` |
-| Realtime voice session starts (`api/realtime-session.ts`) | 3/hour, 10/day per user | `chat_events` table — reuses the same table and rows as tutor chat above, so each voice session start also counts against the shared 100/day tutor-chat cap |
+| Realtime voice session starts (`api/realtime-session.ts`) | 3/hour, 10/day per user | `chat_events` table (reuses the same table and rows as tutor chat above, so each voice session start also counts against the shared 100/day tutor-chat cap) |
 
 Requests over a limit return `429` before any OpenAI call is made.
 
@@ -48,7 +48,7 @@ Requests over a limit return `429` before any OpenAI call is made.
 it to `ai_usage_events`. Before making an OpenAI call, every endpoint checks the combined estimated
 spend across all of them for the rolling last 24 hours (via the `ai_usage_daily_cost_usd()`
 Postgres function) and returns `429` once it reaches **$5**, regardless of which feature or user is
-responsible. This check fails **open** on a database error — a monitoring hiccup degrades to
+responsible. This check fails **open** on a database error: a monitoring hiccup degrades to
 "no extra cap that moment," not "every AI feature goes down."
 
 ## Realtime voice budget enforcement ($0.75/session reservation)
@@ -64,11 +64,11 @@ completions, so it has its own conservative, fail-**closed** control path (see
 2. The session uses the lower-cost `gpt-realtime-2.1-mini` model.
 3. Every `response.done` event reports cumulative text-input/output, audio-input/output, and
    image-input token totals to `api/realtime-usage.ts`. The server stores **monotonic** token
-   counts and separate per-modality costs in `ai_usage_events` — a stale or out-of-order report can
+   counts and separate per-modality costs in `ai_usage_events`; a stale or out-of-order report can
    never reduce previously recorded usage.
 4. The browser polls `api/realtime-usage.ts` every 5 seconds and immediately stops the WebRTC
    session if either the **$0.75 session ceiling** or the **$5 combined daily ceiling** is reached,
-   or if the budget check itself fails (fail-closed, not fail-open, unlike the cap above — an
+   or if the budget check itself fails (fail-closed, not fail-open, unlike the cap above: an
    unmetered voice session is a much larger single-session cost risk than one blocked text call).
 5. Sessions also hard-stop after **10 minutes** regardless of spend.
 
@@ -78,7 +78,7 @@ A hard monthly budget is set directly in the OpenAI dashboard
 ([platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits))
 with **Enforce a hard limit** enabled, currently **$10/month**. Once total spend across *all* keys
 on the account hits the limit, further API requests fail with `429` regardless of what the app's
-own rate limiting does — this is the final backstop against bugs, concurrency issues, or a client
+own rate limiting does; this is the final backstop against bugs, concurrency issues, or a client
 that stops reporting usage.
 
 ## "Bring your own key" mode
@@ -86,7 +86,7 @@ that stops reporting usage.
 The client-side BYOK tutor chat (`src/data/liveAi.ts`) is a separate, explicitly lower-trust path:
 the key lives only in component state for the current browser tab, is never persisted
 (`localStorage`/cookies) or sent anywhere except directly to OpenAI, and cannot run up cost on the
-app owner's account. This is disclosed in-app as a demo pattern, not a production one — a real
+app owner's account. This is disclosed in-app as a demo pattern, not a production one; a real
 product would proxy this call through a backend so the key never reaches the client.
 
 ## Consent and privacy controls
@@ -94,20 +94,20 @@ product would proxy this call through a backend so the key never reaches the cli
 Screen sharing, microphone (voice), and camera-based presence detection are **independently**
 opt-in and can be stopped separately at any time:
 
-- **Screen sharing** — only a learner-selected window/tab (`getDisplayMedia`) is captured. Frames
+- **Screen sharing**: only a learner-selected window/tab (`getDisplayMedia`) is captured. Frames
   identical to the previous sample are skipped before analysis. Any progress/activity update the
   AI suggests from screen content requires explicit learner confirmation; nothing is applied
   automatically.
-- **Screen → voice bridge** (optional, off by default) — sends the latest sampled, reduced frame
+- **Screen → voice bridge** (optional, off by default): sends the latest sampled, reduced frame
   plus sanitized text into the active Realtime session only while both screen analysis and the
-  bridge toggle are on. It is never continuous video — see
+  bridge toggle are on. It is never continuous video; see
   [ADR-0005](adr/0005-sampled-screen-images-not-continuous-video.md).
-- **Camera presence** (`FacePresenceMonitor.tsx`) — runs `@mediapipe/tasks-vision`'s face detector
+- **Camera presence** (`FacePresenceMonitor.tsx`): runs `@mediapipe/tasks-vision`'s face detector
   entirely in the browser via WebAssembly. Camera frames are never uploaded, recorded, or sent to
   any server; only a derived `present`/`away` boolean leaves the component, used only to locally
   pause screen analysis while the learner is away. See
   [ADR-0006](adr/0006-local-mediapipe-face-presence-detection.md).
-- **Learning diary** — "Analyze (video stays local)" sends only sampled frames for a short AI
+- **Learning diary**: "Analyze (video stays local)" sends only sampled frames for a short AI
   summary saved to the diary; the recording itself is never uploaded. "Analyze + upload full
   video" is a separate, explicit choice that uploads to private Supabase Storage. Voice notes are
   recorded and offered as a local download, not uploaded anywhere.
@@ -116,7 +116,7 @@ opt-in and can be stopped separately at any time:
 
 | Data | Processed where | Persisted? | Retention | Learner control |
 |---|---|---|---|---|
-| Screen video (default) | Browser only | No | Discarded when recording stops | N/A — never leaves the browser |
+| Screen video (default) | Browser only | No | Discarded when recording stops | N/A, never leaves the browser |
 | Sampled screen frame | Browser → OpenAI (`observe-screen.ts`) | No | Per-request only | Pause/stop screen analysis |
 | Screen → voice image | Browser → OpenAI Realtime | No | Per-message only | Disable the bridge toggle |
 | Learning-diary summary | Supabase (`screen_recordings`, no video) | Yes | Until learner deletes it | Delete from diary |
@@ -141,7 +141,7 @@ These are intentionally left as documented tradeoffs rather than gaps that were 
   own* request via course/activity titles fed into prompts, but there is no path for it to affect
   any other user's data, session, or the server itself.
 - **10 remaining `npm audit` findings**, all transitive dependencies of `@vercel/node` (a
-  devDependency used only for TypeScript types — its code never ships in the deployed app or
+  devDependency used only for TypeScript types; its code never ships in the deployed app or
   browser bundle). Fixing requires a breaking downgrade for an unreachable-at-runtime finding.
 
 ## Incident history

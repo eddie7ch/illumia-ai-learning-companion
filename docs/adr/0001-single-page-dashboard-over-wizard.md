@@ -36,6 +36,6 @@ polished and functional prototype" emphasis over feature count; keeps the single
 trivially satisfied.
 
 **Negative:** a dashboard with many panels needs careful responsive/mobile layout work (collapsing
-grids, a drawer for chat) to avoid feeling cluttered — accepted and addressed via the mobile-first
+grids, a drawer for chat) to avoid feeling cluttered; accepted and addressed via the mobile-first
 layout described in [security-and-privacy.md](../security-and-privacy.md)'s consent section and the
 architecture doc's project structure.

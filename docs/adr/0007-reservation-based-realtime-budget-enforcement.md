@@ -7,7 +7,7 @@ Accepted
 ## Context
 
 The existing shared AI budget (`_aiBudget.ts`) estimates cost *after* an OpenAI call completes,
-from that call's own `usage.prompt_tokens`/`completion_tokens`, then logs it — a post-hoc,
+from that call's own `usage.prompt_tokens`/`completion_tokens`, then logs it: a post-hoc,
 fail-open pattern that's fine for short request/response calls. Realtime voice is different: a
 single session can run for minutes, cost is metered continuously across multiple modalities
 (text/audio/image, input/output), and a runaway or unmetered session is a far larger single-shot
@@ -50,4 +50,4 @@ advisory lock.
 
 **Negative:** the fixed $0.75 reservation is deliberately conservative (a typical session likely
 costs less), so it can reject a new session slightly earlier than the "true" remaining budget would
-strictly require — an intentional overcount rather than a risk of undercounting.
+strictly require: an intentional overcount rather than a risk of undercounting.

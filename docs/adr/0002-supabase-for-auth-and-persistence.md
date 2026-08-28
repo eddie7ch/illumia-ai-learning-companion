@@ -24,7 +24,7 @@ enforcement boundary for per-user data isolation.
   its security-rules language is a separate DSL to write and audit rather than reusing standard
   SQL/RLS policies.
 - **A custom Node/Express backend + self-hosted Postgres.** Rejected: would require hosting,
-  connection pooling, and hand-rolled auth (sessions, password hashing, token refresh) — all
+  connection pooling, and hand-rolled auth (sessions, password hashing, token refresh): all
   solved problems that would consume time better spent on the actual learner-facing features this
   project is evaluated on.
 - **No backend at all (stay frontend-only).** This remains the *default* demo mode; real mode is

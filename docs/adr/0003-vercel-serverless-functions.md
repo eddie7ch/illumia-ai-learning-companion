@@ -26,7 +26,7 @@ well beyond the brief's suggested 3–6 hours.
   fallback). Rejected outright: would require shipping the permanent API key to the client,
   defeating the entire point of a server boundary.
 - **A different serverless host** (AWS Lambda + API Gateway, Cloudflare Workers). Viable
-  alternatives, but Vercel was already the natural choice since the frontend is deployed there —
+  alternatives, but Vercel was already the natural choice since the frontend is deployed there:
   `api/*.ts` functions deploy from the exact same repo and build step with no extra
   infrastructure-as-code to write.
 
@@ -36,7 +36,7 @@ well beyond the brief's suggested 3–6 hours.
 is a small, independently testable unit; cold-start latency is acceptable for chat/grading-style
 request/response calls.
 
-**Negative:** serverless functions are not well-suited to long-lived connections — this is exactly
+**Negative:** serverless functions are not well-suited to long-lived connections; this is exactly
 why the Realtime voice feature only uses a Vercel function for the initial SDP handshake and then
 lets audio flow directly between the browser and OpenAI over WebRTC (see
 [ADR-0004](0004-webrtc-openai-realtime-for-voice.md)) rather than proxying the whole voice stream

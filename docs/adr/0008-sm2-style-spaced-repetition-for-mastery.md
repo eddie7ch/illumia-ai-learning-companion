@@ -21,7 +21,7 @@ formulas.
 ## Alternatives considered
 
 - **A simple fixed review cadence** (e.g. "review every 7 days"). Rejected: doesn't adapt to how
-  well a learner actually knows a topic — a topic they've mastered doesn't need the same review
+  well a learner actually knows a topic: a topic they've mastered doesn't need the same review
   frequency as one they're struggling with.
 - **A dedicated flashcard/spaced-repetition review UI with manual again/hard/good/easy grading**
   (the traditional SM-2 UX). Rejected for this project's scope: it would require a whole separate
@@ -40,7 +40,7 @@ growth, lapse handling) is well-documented prior art rather than a novel, unveri
 
 **Negative:** deriving "quality" automatically from a single score is a simplification of true SM-2
 (no distinction between, say, a slow-but-correct answer and a fast-and-confident one); this is an
-explainable heuristic that hasn't been validated against real retention outcomes — noted as a
+explainable heuristic that hasn't been validated against real retention outcomes, noted as a
 "possible next step" in the [README](../../README.md).
 
 ## Update (2026-08-15)
@@ -48,6 +48,6 @@ explainable heuristic that hasn't been validated against real retention outcomes
 A lightweight in-dashboard review surface was added: `ReviewQueue.tsx` lists topics from
 `dueTopicReviews()` and lets the learner start an on-demand, AI-generated micro-quiz per due
 topic (real mode only), feeding the result straight back into `updateTopicMastery()`. This isn't
-the separate flashcard-style review mode this ADR rejected above — it stays inside the
+the separate flashcard-style review mode this ADR rejected above: it stays inside the
 single-page dashboard and quality is still derived automatically from the graded score, not a
-manual again/hard/good/easy grade — so the "Alternatives considered" reasoning above still holds.
+manual again/hard/good/easy grade, so the "Alternatives considered" reasoning above still holds.

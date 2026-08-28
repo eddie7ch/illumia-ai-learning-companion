@@ -14,7 +14,7 @@ Realtime session so the model always has an up-to-date view.
 
 Sample a single reduced, changed screen frame periodically (currently every 12 seconds while
 recording), and only forward that latest still frame plus a sanitized text description into the
-active session — first to `api/observe-screen.ts` for an AI-generated observation, and optionally
+active session: first to `api/observe-screen.ts` for an AI-generated observation, and optionally
 (if the learner separately opts into the voice bridge) as an `input_image`/`input_text` message
 into the Realtime conversation. Duplicate frames (identical to the previous sample) are skipped
 entirely.
@@ -30,7 +30,7 @@ entirely.
   more in vision-model tokens for no meaningful gain in tutoring usefulness (the model needs to
   read approximate code/UI state, not pixel-perfect detail).
 - **Only ever use text descriptions, never real images (the original bridge implementation).**
-  This was tried first and found insufficient — see the "Live voice tutor still cannot see the
+  This was tried first and found insufficient: see the "Live voice tutor still cannot see the
   screen" fix referenced in this project's history: OpenAI's Realtime API needs an actual
   `input_image` content part for vision, not a text-only `system` message, so a reduced real image
   is necessary, just not a continuous stream of them.
@@ -40,6 +40,6 @@ entirely.
 **Positive:** bounded, predictable cost per sample; a much smaller privacy surface than continuous
 video; duplicate-frame skipping avoids redundant analysis when the screen hasn't changed.
 
-**Negative:** the voice tutor's "view" of the screen is a snapshot, not truly live — it can lag
+**Negative:** the voice tutor's "view" of the screen is a snapshot, not truly live; it can lag
 behind what the learner is currently doing between samples. This tradeoff is explained to users
 (see the README's live-demo description) rather than hidden.

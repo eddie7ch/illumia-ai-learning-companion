@@ -1,6 +1,6 @@
 # Architecture decision records
 
-Each ADR captures a decision, the alternatives considered, and the consequences accepted —
+Each ADR captures a decision, the alternatives considered, and the consequences accepted:
 answering not just what was built but why, and why not something else. See
 [architecture.md](../architecture.md) for the resulting system as built.
 

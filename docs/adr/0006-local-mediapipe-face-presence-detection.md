@@ -21,7 +21,7 @@ entirely client-side via WebAssembly. Camera frames never leave the browser; onl
 - **Send camera frames to a cloud vision API** (or reuse the existing OpenAI vision path). Rejected
   outright: this would turn an incidental convenience feature (auto-pause when away) into a much
   larger privacy commitment (uploading a learner's webcam feed) for a benefit that doesn't require
-  it — a simple present/away signal never needs the image itself to leave the device.
+  it: a simple present/away signal never needs the image itself to leave the device.
 - **No presence detection at all** (rely on the learner manually pausing). Considered, but a
   fully local, zero-network-cost detector was cheap enough to add real value (automatically
   avoiding wasted analysis while away) without the privacy tradeoff a cloud-based approach would
@@ -29,11 +29,11 @@ entirely client-side via WebAssembly. Camera frames never leave the browser; onl
 
 ## Consequences
 
-**Positive:** camera data has zero server-side exposure — there is no path for a camera frame to
+**Positive:** camera data has zero server-side exposure; there is no path for a camera frame to
 reach any backend, which sidesteps an entire category of privacy/consent questions a cloud-based
 version would raise.
 
 **Negative:** local WASM face detection is less accurate than a cloud model and depends on the
 learner's device having enough resources to run it smoothly; it is also easy to defeat (e.g.
-covering the camera briefly counts as "away") — acceptable since this is a convenience/UX feature,
+covering the camera briefly counts as "away"), acceptable since this is a convenience/UX feature,
 not a security control.

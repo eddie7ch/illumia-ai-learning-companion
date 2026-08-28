@@ -24,7 +24,7 @@ flowchart LR
   expose; protected by Row Level Security, not secrecy) and, optionally, a learner-supplied "bring
   your own key" used only for the demo-mode fallback chat.
 - **Vercel serverless functions** (`api/*.ts`) are the only code that holds the server-only
-  `OPENAI_API_KEY`. Every function re-validates the caller's Supabase session token itself — the
+  `OPENAI_API_KEY`. Every function re-validates the caller's Supabase session token itself: the
   browser is never trusted to say who it is.
 - **Supabase** provides authentication and Postgres persistence. Row Level Security (RLS) is the
   actual access-control boundary, enforced at the database layer, not just in application code.
@@ -41,7 +41,7 @@ variables are present (`src/main.tsx`):
 | | Demo mode (`App.tsx`) | Real mode (`RealApp.tsx`) |
 |---|---|---|
 | Learner data | One fixed mock learner (`src/data/mockData.ts`) | Authenticated Supabase account |
-| Persistence | None — resets on reload | Postgres, owner-scoped via RLS |
+| Persistence | None, resets on reload | Postgres, owner-scoped via RLS |
 | AI tutor chat | Simulated keyword responder (`src/data/aiTutor.ts`), optional BYOK | Server-backed OpenAI via `api/chat.ts` |
 | Grading/quizzes/diagnostics | Simulated (`src/services/aiService.ts`) | Real OpenAI via `api/grade.ts`, `api/generate-quiz.ts`, `api/generate-diagnostic.ts` |
 | Voice tutor / screen observer | Not available | Available, each independently opt-in |
@@ -54,7 +54,7 @@ the default; real mode is additive and only activates when a reviewer deliberate
 
 **AI-graded activity submission**
 1. Browser calls `api/grade.ts` with the Supabase bearer token and submitted text/code.
-2. The function calls `supabase.auth.getUser(token)` — the returned `user.id` is the only source
+2. The function calls `supabase.auth.getUser(token)`: the returned `user.id` is the only source
    of truth for whose request this is.
 3. Per-user and shared daily budget checks run before any OpenAI call (see
    [security-and-privacy.md](security-and-privacy.md)).
@@ -67,7 +67,7 @@ the default; real mode is additive and only activates when a reviewer deliberate
    `reserve_realtime_ai_budget()` to atomically reserve $0.75 against the shared daily cap.
 3. If reserved, the function forwards the SDP offer to OpenAI's Realtime API with the server-only
    key and returns OpenAI's SDP answer plus a server-generated session ID.
-4. Audio then flows directly between the browser and OpenAI over WebRTC — Vercel is no longer in
+4. Audio then flows directly between the browser and OpenAI over WebRTC; Vercel is no longer in
    the media path after the handshake.
 5. The browser reports cumulative token usage from each `response.done` event to
    `api/realtime-usage.ts`, which reconciles actual modality costs and returns whether the session
@@ -78,7 +78,7 @@ the default; real mode is additive and only activates when a reviewer deliberate
 2. A reduced, changed frame is sampled periodically and sent to `api/observe-screen.ts`, which
    returns a sanitized observation (summary, visible action, evidence, optional suggested
    activity/progress update).
-3. Any suggested progress update requires explicit learner confirmation before it is applied —
+3. Any suggested progress update requires explicit learner confirmation before it is applied:
    nothing is written automatically from screen content.
 4. If the learner also opts into the voice bridge, the latest sampled frame and sanitized text are
    sent directly into the active Realtime session as an `input_image`/`input_text` message; the
@@ -88,7 +88,7 @@ the default; real mode is additive and only activates when a reviewer deliberate
 ## Trust boundaries
 
 - **Browser ↔ Vercel:** bearer-token authenticated; Vercel never trusts a client-supplied user ID.
-- **Vercel ↔ Supabase:** uses the anon key plus the caller's own JWT so RLS still applies —
+- **Vercel ↔ Supabase:** uses the anon key plus the caller's own JWT so RLS still applies;
   the `service_role` key is never used anywhere in this codebase.
 - **Vercel ↔ OpenAI:** server-only secret key; never sent to or readable from the browser.
 - **Browser ↔ OpenAI (Realtime/WebRTC only):** the browser only ever holds a short-lived SDP
