@@ -46,15 +46,9 @@ Nothing here changes runtime behavior.
 
 ## Overdid or underdid, relative to the brief?
 
-The brief (see box below) asks for a **3–6 hour**, **frontend-only** prototype: a single page, mock
+The brief asks for a **3–6 hour**, **frontend-only** prototype: a single page, mock
 or simulated AI, no auth/backend/database required, evaluated on product judgment and use of AI
 tools — explicitly **not** evaluated on production-readiness or feature count.
-
-> "Expected effort: 3–6 hours... We are not expecting a production-ready application... You do not
-> need to build: Authentication / Backend services / A database / Production AI infrastructure /
-> Or any other pages aside from the assigned page... A real LLM integration is optional. Mocked or
-> simulated AI responses are acceptable."
-> — *Illumia Case Study Assignment*
 
 **Where this clearly overdid it:**
 
